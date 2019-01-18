@@ -61,6 +61,9 @@ euc = { version = "0.3.0", default-features = false, optional = true }
 vek = { version = "0.9.6", default-features = false, optional = true }
 smallvec = { version = "0.6.9", default-features = false, optional = true }
 
+# Auto Splitting
+livesplit-auto-splitting = { path = "crates/livesplit-auto-splitting", version = "0.1.0", optional = true }
+
 [dev-dependencies]
 memmem = "0.1.1"
 criterion = "0.2.5"
@@ -71,6 +74,7 @@ default = ["image-shrinking"]
 image-shrinking = ["image/webp", "image/pnm", "image/ico", "image/jpeg", "image/gif_codec", "image/tiff", "image/tga", "image/bmp", "image/hdr"]
 rendering = ["euclid", "livesplit-title-abbreviations", "rusttype", "lyon", "smallvec"]
 software-rendering = ["rendering", "euc", "vek"]
+auto-splitting = ["livesplit-auto-splitting"]
 
 [[bench]]
 name = "balanced_pb"
