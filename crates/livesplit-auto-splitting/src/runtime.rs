@@ -13,15 +13,19 @@ pub struct Runtime {
     should_start: Option<FuncRef>,
     should_split: Option<FuncRef>,
     should_reset: Option<FuncRef>,
+    is_loading: Option<FuncRef>,
+    game_time: Option<FuncRef>,
     update: Option<FuncRef>,
+    disconnected: Option<FuncRef>,
+    is_loading_val: Option<bool>,
+    game_time_val: Option<f64>,
 }
 
 #[repr(u8)]
 pub enum TimerState {
     NotRunning = 0,
     Running = 1,
-    Paused = 2,
-    Finished = 3,
+    Finished = 2,
 }
 
 #[derive(Debug)]
@@ -54,8 +58,17 @@ impl Runtime {
         let should_reset = instance
             .export_by_name("should_reset")
             .and_then(|e| e.as_func()?.clone().into());
+        let is_loading = instance
+            .export_by_name("is_loading")
+            .and_then(|e| e.as_func()?.clone().into());
+        let game_time = instance
+            .export_by_name("game_time")
+            .and_then(|e| e.as_func()?.clone().into());
         let update = instance
             .export_by_name("update")
+            .and_then(|e| e.as_func()?.clone().into());
+        let disconnected = instance
+            .export_by_name("disconnected")
             .and_then(|e| e.as_func()?.clone().into());
 
         Ok(Self {
@@ -65,7 +78,12 @@ impl Runtime {
             should_start,
             should_split,
             should_reset,
+            is_loading,
+            game_time,
             update,
+            disconnected,
+            is_loading_val: None,
+            game_time_val: None,
         })
     }
 
@@ -85,8 +103,12 @@ impl Runtime {
         }
 
         if self.update_values(just_connected).is_err() {
+            // TODO: Only checks for disconnected if we actually have pointer paths
             eprintln!("Disconnected");
             self.environment.process = None;
+            if let Some(func) = &self.disconnected {
+                FuncInstance::invoke(func, &[], &mut self.environment)?;
+            }
             return Ok(None);
         }
         // println!("{:#?}", self.environment);
@@ -166,6 +188,23 @@ impl Runtime {
                 }
             }
             TimerState::Running => {
+                if let Some(func) = &self.is_loading {
+                    let ret_val = FuncInstance::invoke(func, &[], &mut self.environment)?;
+
+                    self.is_loading_val = match ret_val {
+                        Some(RuntimeValue::I32(val)) => Some(val != 0),
+                        _ => None,
+                    };
+                }
+                if let Some(func) = &self.game_time {
+                    let ret_val = FuncInstance::invoke(func, &[], &mut self.environment)?;
+
+                    self.game_time_val = match ret_val {
+                        Some(RuntimeValue::F64(val)) => Some(val.to_float()),
+                        _ => None,
+                    };
+                }
+
                 if let Some(func) = &self.should_split {
                     let ret_val = FuncInstance::invoke(func, &[], &mut self.environment)?;
 
@@ -181,9 +220,26 @@ impl Runtime {
                     }
                 }
             }
-            _ => unimplemented!(),
+            TimerState::Finished => {
+                if let Some(func) = &self.should_reset {
+                    let ret_val = FuncInstance::invoke(func, &[], &mut self.environment)?;
+
+                    if let Some(RuntimeValue::I32(1)) = ret_val {
+                        return Ok(Some(TimerAction::Reset));
+                    }
+                }
+            }
         }
+
         Ok(None)
+    }
+
+    pub fn is_loading(&self) -> Option<bool> {
+        self.is_loading_val
+    }
+
+    pub fn game_time(&self) -> Option<f64> {
+        self.game_time_val
     }
 }
 

@@ -28,7 +28,7 @@ lto = true
 panic = "abort"
 
 [workspace]
-members = ["capi", "capi/bind_gen", "capi/js", "capi/staticlib", "capi/cdylib", "crates/livesplit-hotkey", "crates/livesplit-title-abbreviations"]
+members = ["capi", "capi/bind_gen", "capi/js", "capi/staticlib", "capi/cdylib", "crates/livesplit-hotkey", "crates/livesplit-title-abbreviations", "crates/livesplit-auto-splitting"]
 
 [dependencies]
 base64 = "0.10.0"
@@ -63,6 +63,7 @@ smallvec = { version = "0.6.9", default-features = false, optional = true }
 
 # Auto Splitting
 livesplit-auto-splitting = { path = "crates/livesplit-auto-splitting", version = "0.1.0", optional = true }
+crossbeam-channel = { version = "0.3.6", default-features = false, optional = true }
 
 [dev-dependencies]
 memmem = "0.1.1"
@@ -74,7 +75,7 @@ default = ["image-shrinking"]
 image-shrinking = ["image/webp", "image/pnm", "image/ico", "image/jpeg", "image/gif_codec", "image/tiff", "image/tga", "image/bmp", "image/hdr"]
 rendering = ["euclid", "livesplit-title-abbreviations", "rusttype", "lyon", "smallvec"]
 software-rendering = ["rendering", "euc", "vek"]
-auto-splitting = ["livesplit-auto-splitting"]
+auto-splitting = ["livesplit-auto-splitting", "crossbeam-channel"]
 
 [[bench]]
 name = "balanced_pb"
