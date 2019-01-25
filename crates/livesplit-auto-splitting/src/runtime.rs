@@ -200,7 +200,14 @@ impl Runtime {
                     let ret_val = FuncInstance::invoke(func, &[], &mut self.environment)?;
 
                     self.game_time_val = match ret_val {
-                        Some(RuntimeValue::F64(val)) => Some(val.to_float()),
+                        Some(RuntimeValue::F64(val)) => {
+                            let val = val.to_float();
+                            if val.is_nan() {
+                                None
+                            } else {
+                                Some(val)
+                            }
+                        }
                         _ => None,
                     };
                 }
