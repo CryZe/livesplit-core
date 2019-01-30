@@ -127,7 +127,11 @@ impl Runtime {
             .expect("The process should be connected at this point");
 
         for pointer_path in &mut self.environment.pointer_paths {
-            let mut address = process.module_address(&pointer_path.module_name)?;
+            let mut address = if !pointer_path.module_name.is_empty() {
+                process.module_address(&pointer_path.module_name)?
+            } else {
+                0
+            };
             let mut offsets = pointer_path.offsets.iter().cloned().peekable();
             if process.is_64bit() {
                 while let Some(offset) = offsets.next() {

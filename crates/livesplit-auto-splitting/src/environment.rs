@@ -139,6 +139,9 @@ impl Externals for Environment {
                 let module_name = self
                     .memory
                     .with_direct_access(|m| {
+                        if len == 0 {
+                            return Some(String::new());
+                        }
                         Some(str::from_utf8(m.get(ptr..ptr + len)?).ok()?.to_owned())
                     })
                     .ok_or_else(|| EnvironmentError::InvalidModuleName)?;
