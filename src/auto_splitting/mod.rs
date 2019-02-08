@@ -30,6 +30,7 @@ impl Runtime {
                         }
                     }
                 };
+                log::info!(target: "Auto Splitter", "Loaded script");
                 loop {
                     // TODO: Handle the different kinds of errors here, such as
                     // needing to end
@@ -37,9 +38,11 @@ impl Runtime {
                         match message {
                             Request::LoadScript(script) => {
                                 runtime = ScriptRuntime::new(&script).unwrap();
+                                log::info!(target: "Auto Splitter", "Loaded script");
                                 // TODO: Send back result instead of unwrapping
                             }
                             Request::UnloadScript => {
+                                log::info!(target: "Auto Splitter", "Unloaded script");
                                 continue 'back_to_not_having_a_runtime;
                             }
                         }
@@ -51,7 +54,13 @@ impl Runtime {
                         TimerPhase::Ended => TimerState::Finished,
                     });
                     // TODO: No unwrap
-                    let action = runtime.step().unwrap();
+                    let action = match runtime.step() {
+                        Ok(action) => action,
+                        Err(e) => {
+                            log::error!(target: "Auto Splitter", "Unloaded the auto splitter because it failed executing: {}", e);
+                            continue 'back_to_not_having_a_runtime;
+                        }
+                    };
                     if let Some(is_loading) = runtime.is_loading() {
                         if is_loading {
                             timer.write().pause_game_time();

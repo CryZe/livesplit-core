@@ -98,13 +98,13 @@ impl Runtime {
                 Ok(p) => Some(p),
                 Err(_) => return Ok(None),
             };
-            eprintln!("Connected");
+            log::info!(target: "Auto Splitter", "Hooked");
             just_connected = true;
         }
 
         if self.update_values(just_connected).is_err() {
             // TODO: Only checks for disconnected if we actually have pointer paths
-            eprintln!("Disconnected");
+            log::info!(target: "Auto Splitter", "Unhooked");
             self.environment.process = None;
             if let Some(func) = &self.disconnected {
                 FuncInstance::invoke(func, &[], &mut self.environment)?;
