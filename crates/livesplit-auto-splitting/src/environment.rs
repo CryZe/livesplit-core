@@ -238,7 +238,7 @@ impl Externals for Environment {
                 self.memory
                     .with_direct_access(|m| {
                         let message = str::from_utf8(m.get(ptr..ptr + len)?).ok()?;
-                        println!("{}", message);
+                        log::info!(target: "Auto Splitter", "{}", message);
                         Some(())
                     })
                     .ok_or_else(|| EnvironmentError::Utf8DecodeError)?;
