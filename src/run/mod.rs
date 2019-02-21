@@ -21,16 +21,18 @@ pub mod parser;
 mod run_metadata;
 pub mod saver;
 mod segment;
+mod segment_groups;
 mod segment_history;
 
 #[cfg(test)]
 mod tests;
 
-pub use self::attempt::Attempt;
-pub use self::editor::{Editor, RenameError};
-pub use self::run_metadata::RunMetadata;
-pub use self::segment::Segment;
-pub use self::segment_history::SegmentHistory;
+pub use attempt::Attempt;
+pub use editor::{Editor, RenameError};
+pub use run_metadata::RunMetadata;
+pub use segment::Segment;
+pub use segment_groups::{SegmentGroup, SegmentGroups};
+pub use segment_history::SegmentHistory;
 
 use crate::comparison::{default_generators, personal_best, ComparisonGenerator};
 use crate::{AtomicDateTime, Image, Time, TimeSpan, TimingMethod};
@@ -68,6 +70,7 @@ pub struct Run {
     has_been_modified: bool,
     path: Option<PathBuf>,
     segments: Vec<Segment>,
+    segment_groups: SegmentGroups,
     custom_comparisons: Vec<String>,
     comparison_generators: ComparisonGenerators,
     auto_splitter_settings: Vec<u8>,
@@ -114,6 +117,7 @@ impl Run {
             has_been_modified: false,
             path: None,
             segments: Vec::new(),
+            segment_groups: SegmentGroups::new(),
             custom_comparisons: vec![personal_best::NAME.to_string()],
             comparison_generators: ComparisonGenerators(default_generators()),
             auto_splitter_settings: Vec::new(),
@@ -225,6 +229,11 @@ impl Run {
     #[inline]
     pub fn segments_mut(&mut self) -> &mut Vec<Segment> {
         &mut self.segments
+    }
+
+    #[inline]
+    pub fn segment_groups_mut(&mut self) -> &mut SegmentGroups {
+        &mut self.segment_groups
     }
 
     /// Pushes the segment provided to the end of the list of segments of this Run.
