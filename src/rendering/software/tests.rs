@@ -122,7 +122,7 @@ fn subsplits_layout() {
     check_dims(
         &layout.state(&timer),
         [300, 800],
-        0x2d9e6b9c,
+        0x1cc1eb84,
         "subsplits_layout",
     );
 }
@@ -199,7 +199,7 @@ fn horizontal() {
         &[Some(10.0), None, Some(20.0), Some(55.0)],
     );
 
-    check_dims(&layout.state(&timer), [1500, 40], 0xbfb208ce, "horizontal");
+    check_dims(&layout.state(&timer), [1500, 40], 0xffff1ad0, "horizontal");
 }
 
 fn check(state: &LayoutState, expected_checksum: u32, name: &str) {

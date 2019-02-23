@@ -6,13 +6,17 @@
 //! shown all the time.
 
 use crate::{
+    run::SegmentGroupsIter,
     settings::{Color, Field, Gradient, ListGradient, SettingsDescription, Value},
-    CachedImageId, GeneralLayoutSettings, Timer,
+    CachedImageId, GeneralLayoutSettings, Segment, Timer,
 };
 use serde_json::{to_writer, Result};
-use std::borrow::Cow;
-use std::cmp::{max, min};
-use std::io::Write;
+use std::{
+    borrow::Cow,
+    cmp::{max, min},
+    io::Write,
+    iter,
+};
 
 #[cfg(test)]
 mod tests;
@@ -99,10 +103,17 @@ pub struct SplitState {
     /// Describes if this segment is the segment the active attempt is currently
     /// on.
     pub is_current_split: bool,
+    /// Describes whether the segment is part of a segment group.
+    pub is_subsplit: bool,
+    /// Describes whether the row should be considered an even or an odd row.
+    /// This is useful for visualizing the rows with alternating colors.
+    pub is_even: bool,
     /// The index of the segment based on all the segments of the run. This may
     /// differ from the index of this `SplitState` in the `State` object, as
-    /// there can be a scrolling window, showing only a subset of segments. Each
-    /// index is guaranteed to be unique.
+    /// there can be a scrolling window, showing only a subset of segments.
+    /// Indices are not guaranteed to be unique, as they may appear in both
+    /// group headers and in segments within the groups. Only the pair of index
+    /// and `is_subsplit` is unique.
     pub index: usize,
 }
 
@@ -270,12 +281,27 @@ impl Component {
         let run = timer.run();
         self.icon_ids.resize(run.len(), CachedImageId::default());
 
-        let mut visual_split_count = self.settings.visual_split_count;
-        if visual_split_count == 0 {
-            visual_split_count = run.len();
+        let current_split = timer.current_split_index();
+
+        let mut index_of_segment_in_focus = None;
+        let mut flattened_count = 0;
+        for (flattened_index, segment) in flatten(
+            run.segment_groups_iter(),
+            current_split.unwrap_or_else(|| run.len()),
+        )
+        .enumerate()
+        {
+            if segment.in_focus {
+                index_of_segment_in_focus = Some(flattened_index);
+            }
+            flattened_count += 1;
         }
 
-        let current_split = timer.current_split_index();
+        let mut visual_split_count = self.settings.visual_split_count;
+        if visual_split_count == 0 {
+            visual_split_count = flattened_count;
+        }
+
         let method = timer.current_timing_method();
 
         let always_show_last_split = if self.settings.always_show_last_split {
@@ -284,7 +310,7 @@ impl Component {
             1
         };
         let skip_count = min(
-            current_split.map_or(0, |c_s| {
+            index_of_segment_in_focus.map_or(0, |c_s| {
                 c_s.saturating_sub(
                     visual_split_count
                         .saturating_sub(2)
@@ -292,11 +318,11 @@ impl Component {
                         .saturating_add(always_show_last_split),
                 ) as isize
             }),
-            run.len() as isize - visual_split_count as isize,
+            flattened_count as isize - visual_split_count as isize,
         );
         self.scroll_offset = min(
             max(self.scroll_offset, -skip_count),
-            run.len() as isize - skip_count - visual_split_count as isize,
+            flattened_count as isize - skip_count - visual_split_count as isize,
         );
         let skip_count = max(0, skip_count + self.scroll_offset) as usize;
         let take_count = visual_split_count + always_show_last_split as usize - 1;
@@ -304,7 +330,7 @@ impl Component {
 
         let show_final_separator = self.settings.separator_last_split
             && always_show_last_split
-            && skip_count + take_count + 1 < run.len();
+            && skip_count + take_count + 1 < flattened_count;
 
         let Settings {
             show_thin_separators,
@@ -316,46 +342,56 @@ impl Component {
 
         let mut icon_changes = Vec::new();
 
-        let mut splits: Vec<_> = run
-            .segments()
-            .iter()
-            .enumerate()
-            .zip(self.icon_ids.iter_mut())
-            .skip(skip_count)
-            .filter(|&((i, _), _)| {
-                i - skip_count < take_count || (always_show_last_split && i + 1 == run.len())
-            })
-            .map(|((i, segment), icon_id)| {
-                let columns = columns
+        let mut splits = Vec::with_capacity(visual_split_count);
+
+        for (flattened_index, segment) in flatten(
+            run.segment_groups_iter(),
+            current_split.unwrap_or_else(|| run.len()),
+        )
+        .enumerate()
+        .skip(skip_count)
+        .filter(|&(i, _)| {
+            i - skip_count < take_count || (always_show_last_split && i + 1 == flattened_count)
+        }) {
+            let columns = if segment.kind
+                != FlattenedSegmentGroupItemKind::GroupHeader(SegmentGroupVisibility::Shown)
+            {
+                columns
                     .iter()
                     .map(|column| {
                         column::state(
                             column,
                             timer,
                             layout_settings,
-                            segment,
-                            i,
+                            segment.segment,
+                            segment.index,
                             current_split,
                             method,
                         )
                     })
-                    .collect();
+                    .collect()
+            } else {
+                Vec::new()
+            };
 
-                if let Some(icon_change) = icon_id.update_with(Some(segment.icon())) {
-                    icon_changes.push(IconChange {
-                        segment_index: i,
-                        icon: icon_change.to_owned(),
-                    });
-                }
+            if let Some(icon_change) =
+                self.icon_ids[segment.index].update_with(Some(segment.segment.icon()))
+            {
+                icon_changes.push(IconChange {
+                    segment_index: segment.index,
+                    icon: icon_change.to_owned(),
+                });
+            }
 
-                SplitState {
-                    name: segment.name().to_string(),
-                    columns,
-                    is_current_split: Some(i) == current_split,
-                    index: i,
-                }
-            })
-            .collect();
+            splits.push(SplitState {
+                name: segment.name.to_string(),
+                columns,
+                is_current_split: segment.in_focus,
+                is_subsplit: segment.kind == FlattenedSegmentGroupItemKind::Subsplit,
+                is_even: flattened_index % 2 == 0,
+                index: segment.index,
+            });
+        }
 
         if fill_with_blank_space && splits.len() < visual_split_count {
             let blank_split_count = visual_split_count - splits.len();
@@ -364,6 +400,8 @@ impl Component {
                     name: String::new(),
                     columns: Vec::new(),
                     is_current_split: false,
+                    is_subsplit: false,
+                    is_even: true,
                     index: (usize::max_value() ^ 1) - 2 * i,
                 });
             }
@@ -515,4 +553,64 @@ impl Component {
             }
         }
     }
+}
+
+#[derive(Copy, Clone, PartialEq)]
+enum SegmentGroupVisibility {
+    Collapsed,
+    Shown,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+enum FlattenedSegmentGroupItemKind {
+    GroupHeader(SegmentGroupVisibility),
+    Subsplit,
+}
+
+struct FlattenedSegmentGroupItem<'groups_or_segments, 'segments> {
+    segment: &'segments Segment,
+    name: &'groups_or_segments str,
+    index: usize,
+    kind: FlattenedSegmentGroupItemKind,
+    in_focus: bool,
+}
+
+fn flatten<'groups_or_segments, 'segments: 'groups_or_segments>(
+    iter: SegmentGroupsIter<'groups_or_segments, 'segments>,
+    focus_segment_index: usize,
+) -> impl Iterator<Item = FlattenedSegmentGroupItem<'groups_or_segments, 'segments>> {
+    iter.flat_map(move |group| {
+        let start_index = group.start_index();
+        let (children, visibility) =
+            if group.contains(focus_segment_index) && group.len() > 1 {
+                (
+                    Some(group.segments().iter().enumerate().map(
+                        move |(local_index, subsplit)| {
+                            let index = start_index + local_index;
+                            FlattenedSegmentGroupItem {
+                                segment: subsplit,
+                                name: subsplit.name(),
+                                index,
+                                kind: FlattenedSegmentGroupItemKind::Subsplit,
+                                in_focus: index == focus_segment_index,
+                            }
+                        },
+                    )),
+                    SegmentGroupVisibility::Shown,
+                )
+            } else {
+                (None, SegmentGroupVisibility::Collapsed)
+            };
+
+        let header_index = start_index + group.len() - 1;
+        iter::once(FlattenedSegmentGroupItem {
+            segment: group.ending_segment(),
+            name: group.name_or_default(),
+            index: header_index,
+            kind: FlattenedSegmentGroupItemKind::GroupHeader(visibility),
+            in_focus: visibility == SegmentGroupVisibility::Collapsed
+                && header_index == focus_segment_index,
+        })
+        .chain(children.into_iter().flatten())
+    })
 }
