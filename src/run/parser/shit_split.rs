@@ -46,7 +46,7 @@ pub fn parse<R: BufRead>(source: R) -> Result<Run> {
 
     let mut splits = line.split('|');
     let category_name = splits.next().ok_or(Error::ExpectedCategoryName)?;
-    if !category_name.starts_with('#') {
+    if !category_name.starts_with("#") {
         return Err(Error::ExpectedCategoryName);
     }
 
@@ -68,7 +68,7 @@ pub fn parse<R: BufRead>(source: R) -> Result<Run> {
         let mut has_acts = false;
         while let Some(line) = next_line {
             let line = line?;
-            if line.starts_with('*') {
+            if line.starts_with("*") {
                 run.push_segment(Segment::new(&line[1..]));
                 has_acts = true;
                 next_line = lines.next();

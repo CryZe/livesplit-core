@@ -12,7 +12,8 @@
 #![allow(
     clippy::block_in_if_condition_stmt,
     clippy::redundant_closure_call,
-    clippy::new_ret_no_self
+    clippy::new_ret_no_self,
+    clippy::single_char_pattern, // https://github.com/rust-lang/rust-clippy/issues/3813
 )]
 
 //! livesplit-core is a library that provides a lot of functionality for creating a speedrun timer.

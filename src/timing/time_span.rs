@@ -79,10 +79,10 @@ impl FromStr for TimeSpan {
     type Err = ParseError;
 
     fn from_str(mut text: &str) -> Result<Self, ParseError> {
-        let factor = if text.starts_with('-') {
+        let factor = if text.starts_with("-") {
             text = &text[1..];
             -1.0
-        } else if text.starts_with('−') {
+        } else if text.starts_with("−") {
             text = &text[3..];
             -1.0
         } else {

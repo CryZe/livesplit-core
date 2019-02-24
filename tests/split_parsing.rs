@@ -4,7 +4,7 @@ mod parse {
         source_live_timer, splits_io, splitterz, time_split_tracker, urn, worstrun, wsplit,
         TimerKind,
     };
-    use livesplit_core::{analysis::total_playtime, Run, TimeSpan};
+    use livesplit_core::{analysis::total_playtime, run::SegmentGroup, Run, TimeSpan};
     use std::fs::File;
     use std::io::{BufReader, Cursor};
 
@@ -64,6 +64,19 @@ mod parse {
     #[test]
     fn livesplit_celeste() {
         livesplit("tests/run_files/Celeste - Any% (1.2.1.5).lss");
+    }
+
+    #[test]
+    fn segment_groups() {
+        let run = livesplit("tests/run_files/segment_groups.lss");
+        let groups = run.segment_groups().groups();
+        assert_eq!(groups[0], SegmentGroup::new(1, 4, None).unwrap());
+        assert_eq!(groups[1], SegmentGroup::new(4, 7, None).unwrap());
+        assert_eq!(groups[2], SegmentGroup::new(7, 11, None).unwrap());
+        assert_eq!(groups[3], SegmentGroup::new(11, 15, None).unwrap());
+        assert_eq!(groups[4], SegmentGroup::new(15, 20, None).unwrap());
+        assert_eq!(groups[5], SegmentGroup::new(20, 26, None).unwrap());
+        assert_eq!(groups[6], SegmentGroup::new(26, 33, None).unwrap());
     }
 
     #[test]
