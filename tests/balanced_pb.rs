@@ -22,6 +22,7 @@ fn t(r: &str, g: &str) -> Time {
         .with_game_time(g.parse().ok())
 }
 
+#[cfg(not(miri))]
 #[test]
 fn balanced_pb() {
     let reader = BufReader::new(File::open("tests/run_files/livesplit1.6_gametime.lss").unwrap());

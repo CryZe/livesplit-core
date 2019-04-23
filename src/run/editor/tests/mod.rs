@@ -67,6 +67,7 @@ fn new_best_segment() {
     );
 }
 
+#[cfg(not(miri))]
 #[test]
 #[should_panic(expected = "Index out of bounds for segment selection.")]
 fn select_only_oob() {
@@ -78,6 +79,7 @@ fn select_only_oob() {
     editor.select_only(1);
 }
 
+#[cfg(not(miri))]
 #[test]
 #[should_panic(expected = "Index out of bounds for segment selection.")]
 fn select_additionally_oob() {
