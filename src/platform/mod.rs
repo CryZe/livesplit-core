@@ -5,6 +5,9 @@ cfg_if::cfg_if! {
     } else if #[cfg(target_arch = "wasm32")] {
         mod wasm;
         pub use self::wasm::*;
+    } else if #[cfg(miri)] {
+        mod miri;
+        pub use self::miri::*;
     } else {
         mod normal;
         pub use self::normal::*;

@@ -1,5 +1,6 @@
 use crate::Run;
 
+#[cfg(not(miri))]
 #[test]
 fn min_segment_history_index() {
     assert!(Run::new().min_segment_history_index().is_none());
@@ -15,6 +16,7 @@ fn max_attempt_history_index() {
     assert!(Run::new().max_attempt_history_index().is_none());
 }
 
+#[cfg(not(miri))]
 #[test]
 fn fix_splits() {
     Run::new().fix_splits();
@@ -30,17 +32,20 @@ fn clear_times() {
     Run::new().clear_times();
 }
 
+#[cfg(not(miri))]
 #[test]
 fn import_pb_into_segment_history() {
     Run::new().import_pb_into_segment_history();
 }
 
+#[cfg(not(miri))]
 #[test]
 #[should_panic]
 fn import_best_segment() {
     Run::new().import_best_segment(0);
 }
 
+#[cfg(not(miri))]
 #[test]
 #[should_panic(expected = "There is no attempt in the Attempt History.")]
 fn update_segment_history() {

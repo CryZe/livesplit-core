@@ -10,21 +10,25 @@ mod parse {
         parse(file(path)).unwrap()
     }
 
+    #[cfg(not(miri))]
     #[test]
     fn all() {
         livesplit("tests/layout_files/All.lsl");
     }
 
+    #[cfg(not(miri))]
     #[test]
     fn dark() {
         livesplit("tests/layout_files/dark.lsl");
     }
 
+    #[cfg(not(miri))]
     #[test]
     fn subsplits() {
         livesplit("tests/layout_files/subsplits.lsl");
     }
 
+    #[cfg(not(miri))]
     #[test]
     fn wsplit() {
         livesplit("tests/layout_files/WSplit.lsl");
