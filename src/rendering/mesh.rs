@@ -1,7 +1,8 @@
-use lyon::tessellation::{
+use lyon_tessellation::{
     geometry_builder::{vertex_builder, VertexConstructor},
     BuffersBuilder, FillVertex, StrokeVertex, VertexBuffers,
 };
+use crate::platform::prelude::*;
 
 /// The vertex types describes a single point of a mesh used to form triangles.
 /// It uses a C compatible layout such that it can be directly uploaded to a GPU.

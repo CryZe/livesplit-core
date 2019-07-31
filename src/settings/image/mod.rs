@@ -1,14 +1,12 @@
+use crate::platform::prelude::*;
 use base64::{display::Base64Display, STANDARD};
+use core::sync::atomic::{AtomicUsize, Ordering};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-use std::fs::File;
-use std::io::{self, Read};
-use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "image-shrinking")]
+#[cfg(all(feature = "std", feature = "image-shrinking"))]
 mod shrinking;
 
 static LAST_IMAGE_ID: AtomicUsize = AtomicUsize::new(0);
@@ -112,12 +110,15 @@ impl Image {
 
     /// Loads an image from the file system. You need to provide a buffer used
     /// for temporarily storing the image's data.
-    pub fn from_file<P, B>(path: P, mut buf: B) -> io::Result<Image>
+    #[cfg(feature = "std")]
+    pub fn from_file<P, B>(path: P, mut buf: B) -> std::io::Result<Image>
     where
-        P: AsRef<Path>,
+        P: AsRef<std::path::Path>,
         B: AsMut<Vec<u8>>,
     {
-        let mut file = File::open(path)?;
+        use std::io::Read;
+
+        let mut file = std::fs::File::open(path)?;
         let len = file.metadata()?.len() as usize;
 
         let buf = buf.as_mut();
@@ -153,13 +154,23 @@ impl Image {
     /// Modifies an image by replacing its image data with the new image data
     /// provided. The image's ID changes to a new unique ID.
     pub fn modify(&mut self, data: &[u8]) {
-        #[cfg(feature = "image-shrinking")]
+        #[cfg(all(feature = "std", feature = "image-shrinking"))]
         let data = {
             const MAX_IMAGE_SIZE: u32 = 128;
 
             shrinking::shrink(data, MAX_IMAGE_SIZE)
         };
-        self.id = LAST_IMAGE_ID.fetch_add(1, Ordering::Relaxed);
+        #[cfg(not(feature = "doesnt-have-atomics"))]
+        {
+            self.id = LAST_IMAGE_ID.fetch_add(1, Ordering::Relaxed);
+        }
+        #[cfg(feature = "doesnt-have-atomics")]
+        {
+            // FIXME: This is so dangerous. Use target_has_atomic at least when that's stable.
+            // https://github.com/rust-lang/rust/issues/32976
+            self.id = LAST_IMAGE_ID.load(Ordering::SeqCst) + 1;
+            LAST_IMAGE_ID.store(self.id, Ordering::SeqCst);
+        }
         self.data.clear();
         self.data.extend_from_slice(&*data);
     }

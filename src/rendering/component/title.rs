@@ -9,6 +9,7 @@ use {
     },
     livesplit_title_abbreviations::abbreviate,
 };
+use crate::platform::prelude::*;
 
 pub(in crate::rendering) fn render<B: Backend>(
     context: &mut RenderContext<'_, B>,

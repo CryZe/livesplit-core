@@ -82,6 +82,7 @@ use {
     rusttype::Font,
     std::iter,
 };
+use crate::platform::prelude::*;
 
 pub use self::mesh::{Mesh, Vertex};
 pub use euclid;
@@ -457,6 +458,7 @@ impl<B: Backend> RenderContext<'_, B> {
             .render_mesh(mesh, self.transform, [decode_color(&color); 4], None)
     }
 
+    #[cfg(feature = "std")]
     fn create_icon(&mut self, image_data: &[u8]) -> Option<Icon<B::Texture>> {
         if image_data.is_empty() {
             return None;
@@ -471,6 +473,11 @@ impl<B: Backend> RenderContext<'_, B> {
             texture,
             aspect_ratio: image.width() as f32 / image.height() as f32,
         })
+    }
+
+    #[cfg(not(feature = "std"))]
+    fn create_icon(&mut self, image_data: &[u8]) -> Option<Icon<B::Texture>> {
+        None
     }
 
     fn free_mesh(&mut self, mesh: B::Mesh) {

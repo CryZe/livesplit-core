@@ -37,47 +37,59 @@ members = ["capi", "capi/bind_gen", "capi/js", "capi/staticlib", "capi/cdylib", 
 # Required crates
 base64 = { version = "0.11.0", default-features = false, features = ["alloc"] }
 cfg-if = "0.1.7"
-chrono = { version = "0.4.0", features = ["serde", "clock"], default-features = false }
 derive_more = { version = "0.99.1", default-features = false, features = ["not", "add", "from", "deref"] }
 odds = { version = "0.3.1", default-features = false }
 ordered-float = { version = "1.0.2", default-features = false }
-palette = { version = "0.4.0", default-features = false }
-serde = { version = "1.0.98", default-features = false, features = ["derive", "alloc", "std"] }
-snafu = { version = "0.6.0", default-features = false, features = ["std"] }
+palette = { git = "https://github.com/Ogeon/palette", features = ["libm"], default-features = false }
+serde = { version = "1.0.98", features = ["derive", "alloc"], default-features = false }
+snafu = { version = "0.6.0", default-features = false }
 unicase = "2.6.0"
+hashbrown = "0.6.3"
+libm = "0.1.4"
 
 # std
-byteorder = "1.3.2"
-image = { version = "0.22.0", features = ["png_codec"], default-features = false }
-indexmap = { version = "1.2.0", default-features = false, features = ["serde-1"] }
-livesplit-hotkey = { path = "crates/livesplit-hotkey", version = "0.5.0" }
-parking_lot = { version = "0.9.0", default-features = false }
-quick-xml = { version = "0.17.0", default-features = false }
-serde_json = "1.0.8"
-utf-8 = "0.7.4"
+byteorder = { version = "1.3.2", optional = true } # Not no_std, because of io
+chrono = { version = "0.4.0", features = ["serde", "clock"], default-features = false, optional = true } # Not no_std, but we probably wouldn't use it there anyway.
+image = { version = "0.22.0", features = ["png_codec"], default-features = false, optional = true } # Not no_std, too much io.
+indexmap = { version = "1.2.0", default-features = false, features = ["serde-1"], optional = true } # Not no_std, but there is a PR https://github.com/bluss/indexmap/pull/92
+livesplit-hotkey = { path = "crates/livesplit-hotkey", version = "0.5.0", optional = true } # Not no_std, but we don't even need this on no_std.
+parking_lot = { version = "0.9.0", default-features = false, optional = true } # No idea tbh, but we probably don't even need parking_lot on no_std
+quick-xml = { version = "0.17.0", default-features = false, optional = true } # Not no_std, because of io
+serde_json = { version = "1.0.8", optional = true } # Not no_std, because of io, but there is a PR https://github.com/serde-rs/json/pull/516
+utf-8 = { version = "0.7.4", optional = true } # Not no_std, because of io
 
 # Rendering
-euclid = { version = "0.20.0", default-features = false, optional = true }
+euclid = { git = "https://github.com/CryZe/euclid", branch = "actual-no-std", default-features = false, optional = true } # Is blocked by num-traits, which has a PR here: https://github.com/rust-num/num-traits/pull/99
 livesplit-title-abbreviations = { path = "crates/livesplit-title-abbreviations", version = "0.1.0", optional = true }
-lyon = { version = "0.14.0", default-features = false, optional = true }
-rusttype = { version = "0.8.0", default-features = false, features = ["std"], optional = true }
+# lyon_path = { git = "https://github.com/CryZe/lyon", branch = "no-std", default-features = false, optional = true }
+# lyon_tessellation = { git = "https://github.com/CryZe/lyon", branch = "no-std", default-features = false, optional = true }
+rusttype = { version = "0.8.0", default-features = false, features = ["libm-math"], optional = true }
 smallvec = { version = "1.0.0", default-features = false, optional = true }
 
 # Software Rendering
-euc = { version = "0.4.2", default-features = false, optional = true }
-vek = { version = "0.9.8", default-features = false, optional = true }
+# euc = { git = "https://github.com/CryZe/euc", branch = "no-std", default-features = false, optional = true }
+# vek = { git = "https://github.com/CryZe/vek", branch = "no-std", default-features = false, optional = true }
 
 [dev-dependencies]
-memmem = "0.1.1"
-criterion = "0.3.0"
-crc = "1.8.1"
+# Urgh more dev-dependency leaking
+# memmem = "0.1.1"
+# criterion = "0.3.0"
+# crc = "1.8.1"
 
 [features]
-default = ["image-shrinking"]
+# default = ["image-shrinking", "std"]
+default = []
+# TODO: Double Check that std properly communicates the std feature through the dependency graph
+# FIXME: Workaround for https://github.com/rust-lang/rust/issues/32976 not being stable.
+# This is intentionally negated logic as you should explicitly opt into this more dangerous behavior. You'll see when you can't compile that you need this.
+doesnt-have-atomics = []
+std = ["byteorder", "chrono", "image", "indexmap", "livesplit-hotkey", "parking_lot", "quick-xml", "serde_json", "utf-8", "snafu/std", "rusttype/std"]
 more-image-formats = ["image/webp", "image/pnm", "image/ico", "image/jpeg", "image/gif_codec", "image/tiff", "image/tga", "image/bmp", "image/hdr"]
 image-shrinking = ["more-image-formats"]
-rendering = ["more-image-formats", "euclid", "livesplit-title-abbreviations", "lyon", "rusttype", "smallvec"]
-software-rendering = ["rendering", "euc", "vek", "derive_more/mul"]
+# rendering = ["more-image-formats", "euclid", "livesplit-title-abbreviations",
+# "lyon", "rusttype", "smallvec"]
+# rendering = ["euclid", "livesplit-title-abbreviations", "lyon_path", "lyon_tessellation", "rusttype", "smallvec"]
+# software-rendering = ["rendering", "euc", "vek", "derive_more/mul"]
 
 [[bench]]
 name = "balanced_pb"

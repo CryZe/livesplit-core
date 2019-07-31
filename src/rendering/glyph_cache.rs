@@ -1,11 +1,9 @@
 use super::mesh::{fill_builder, Mesh};
 use super::Backend;
-use lyon::{
-    path::{math::point, Path},
-    tessellation::{FillOptions, FillTessellator},
-};
+use lyon_path::{math::point, Path};
+use lyon_tessellation::{FillOptions, FillTessellator};
 use rusttype::{Font, GlyphId, Scale, Segment};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 pub struct GlyphCache<M> {
     glyphs: HashMap<GlyphId, M>,
