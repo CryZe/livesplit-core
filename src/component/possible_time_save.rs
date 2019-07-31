@@ -11,8 +11,8 @@ use crate::timing::formatter::{Accuracy, PossibleTimeSave, TimeFormatter};
 use crate::{comparison, Timer, TimerPhase};
 use serde::{Deserialize, Serialize};
 use serde_json::{to_writer, Result};
-use std::borrow::Cow;
-use std::fmt::Write as FmtWrite;
+use alloc::borrow::Cow;
+use core::fmt::Write as FmtWrite;
 use std::io::Write;
 
 /// The Possible Time Save Component is a component that shows how much time the

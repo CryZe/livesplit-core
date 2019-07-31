@@ -1,8 +1,8 @@
 use base64::{self, STANDARD};
+use core::sync::atomic::{AtomicUsize, Ordering};
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 static LAST_IMAGE_ID: AtomicUsize = AtomicUsize::new(0);
 

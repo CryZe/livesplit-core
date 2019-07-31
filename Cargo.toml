@@ -35,23 +35,23 @@ panic = "abort"
 members = ["capi", "capi/bind_gen", "capi/js", "capi/staticlib", "capi/cdylib", "crates/*"]
 
 [dependencies]
-base64 = "0.10.0"
-byteorder = "1.3.2"
-chrono = { version = "0.4.0", features = ["serde", "clock"], default-features = false }
-derive_more = "0.15.0"
-image = { version = "0.22.0", features = ["png_codec"], default-features = false }
-indexmap = { version = "1.0.1", default-features = false, features = ["serde-1"] }
-livesplit-hotkey = { path = "crates/livesplit-hotkey", version = "0.5.0" }
-odds = { version = "0.3.1", default-features = false }
-ordered-float = "1.0.0"
-palette = { version = "0.4.0", default-features = false }
-parking_lot = { version = "0.9.0", default-features = false }
-quick-xml = { version = "0.15.0", default-features = false }
-serde = { version = "1.0.55", features = ["derive"] }
-serde_json = "1.0.8"
-snafu = { version = "0.4.3", default-features = false, features = ["rust_1_30"] }
-unicase = "2.2.0"
-utf-8 = "0.7.4"
+base64 = "0.10.0" # Not no_std, because of io
+byteorder = "1.3.2" # Not no_std, because of io
+chrono = { version = "0.4.0", features = ["serde", "clock"], default-features = false } # Not no_std, but we probably wouldn't use it there anyway.
+derive_more = "0.15.0" # Has a "no_std" feature. Urgh
+image = { version = "0.22.0", features = ["png_codec"], default-features = false } # Not no_std, too much io.
+indexmap = { version = "1.0.1", default-features = false, features = ["serde-1"] } # Not no_std, possibly because of the hashing?
+livesplit-hotkey = { path = "crates/livesplit-hotkey", version = "0.5.0" } # Not no_std, but we don't even need this on no_std.
+odds = { version = "0.3.1", default-features = false } # Yes there is a "std" feature. We don't even use it.
+ordered-float = { version = "1.0.0", default-features = false } # Yes, there is a "std" feature. We don't even use it.
+palette = { version = "0.4.0", default-features = false } # Yes, there is a "std" feature. We don't even use it.
+parking_lot = { version = "0.9.0", default-features = false } # No idea tbh, but we probably don't even need parking_lot on no_std
+quick-xml = { version = "0.15.0", default-features = false } # Not no_std, because of io
+serde = { version = "1.0.55", features = ["derive"] } # Yes, there is a "std" feature. We don't even use it.
+serde_json = "1.0.8" # Not no_std, because of io, but there is a PR https://github.com/serde-rs/json/pull/516
+snafu = { version = "0.4.3", default-features = false, features = ["rust_1_30"] } # Not no_std, because of std::error::Error, but could be a trivial PR to do everything but std:error::Error on no_std
+unicase = "2.2.0" # Not no_std, but seems like a trivial PR
+utf-8 = "0.7.4" # Not no_std, because of io
 
 # Rendering
 euclid = { version = "0.20.0", default-features = false, optional = true }
@@ -70,7 +70,8 @@ criterion = "0.2.5"
 crc = "1.8.1"
 
 [features]
-default = ["image-shrinking"]
+default = ["image-shrinking", "std"]
+std = []
 more-image-formats = ["image/webp", "image/pnm", "image/ico", "image/jpeg", "image/gif_codec", "image/tiff", "image/tga", "image/bmp", "image/hdr"]
 image-shrinking = ["more-image-formats"]
 rendering = ["more-image-formats", "euclid", "livesplit-title-abbreviations", "lyon", "rusttype", "smallvec"]

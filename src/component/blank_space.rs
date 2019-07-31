@@ -5,9 +5,9 @@
 
 use crate::settings::{Field, Gradient, SettingsDescription, Value};
 use crate::Timer;
+use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
 use serde_json::{to_writer, Result};
-use std::borrow::Cow;
 use std::io::Write;
 
 /// The Blank Space Component is simply an empty component that doesn't show

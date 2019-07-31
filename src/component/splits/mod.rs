@@ -9,10 +9,10 @@ use crate::{
     settings::{Color, Field, Gradient, ListGradient, SettingsDescription, Value},
     CachedImageId, GeneralLayoutSettings, Timer,
 };
+use alloc::borrow::Cow;
+use core::cmp::{max, min};
 use serde::{Deserialize, Serialize};
 use serde_json::{to_writer, Result};
-use std::borrow::Cow;
-use std::cmp::{max, min};
 use std::io::Write;
 
 #[cfg(test)]

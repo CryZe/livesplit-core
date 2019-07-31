@@ -7,9 +7,9 @@ use crate::analysis::{delta, state_helper};
 use crate::settings::{Color, Field, Gradient, SemanticColor, SettingsDescription, Value};
 use crate::timing::formatter::{Accuracy, Delta, TimeFormatter};
 use crate::{comparison, GeneralLayoutSettings, Timer};
+use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
 use serde_json::{to_writer, Result};
-use std::borrow::Cow;
 use std::io::Write;
 
 #[cfg(test)]

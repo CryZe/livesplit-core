@@ -1,10 +1,10 @@
 use crate::platform::Duration as StdDuration;
 use chrono::Duration;
+use core::num::ParseFloatError;
+use core::ops::{AddAssign, SubAssign};
+use core::str::FromStr;
 use derive_more::{Add, From, Neg, Sub};
 use snafu::ResultExt;
-use std::num::ParseFloatError;
-use std::ops::{AddAssign, SubAssign};
-use std::str::FromStr;
 
 /// A Time Span represents a certain span of time.
 #[derive(From, Add, Sub, Neg, Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -123,8 +123,8 @@ impl SubAssign for TimeSpan {
     }
 }
 
+use core::fmt;
 use serde::de::{self, Deserialize, Deserializer, Visitor};
-use std::fmt;
 
 impl<'de> Deserialize<'de> for TimeSpan {
     fn deserialize<D>(deserializer: D) -> Result<TimeSpan, D::Error>

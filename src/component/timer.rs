@@ -7,11 +7,11 @@ use crate::analysis::split_color;
 use crate::settings::{Color, Field, Gradient, SemanticColor, SettingsDescription, Value};
 use crate::timing::formatter::{timer as formatter, Accuracy, DigitsFormat, TimeFormatter};
 use crate::{GeneralLayoutSettings, TimeSpan, Timer, TimerPhase, TimingMethod};
+use alloc::borrow::Cow;
 use palette::rgb::LinSrgb;
 use palette::Hsv;
 use serde::{Deserialize, Serialize};
 use serde_json::{to_writer, Result};
-use std::borrow::Cow;
 use std::io::Write;
 
 /// The Timer Component is a component that shows the total time of the current

@@ -5,9 +5,9 @@
 
 use crate::settings::{Color, Field, SettingsDescription, Value};
 use crate::{analysis, comparison, GeneralLayoutSettings, TimeSpan, Timer, TimerPhase};
+use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
 use serde_json::{to_writer, Result};
-use std::borrow::Cow;
 use std::io::Write;
 
 const GRAPH_EDGE_VALUE: f32 = 200.0;

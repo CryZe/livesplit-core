@@ -12,7 +12,7 @@ use {
         basic_shapes::{fill_circle, fill_polyline, stroke_polyline},
         FillOptions, FillTessellator, StrokeOptions,
     },
-    std::iter,
+    core::iter,
 };
 
 pub(in crate::rendering) fn render(

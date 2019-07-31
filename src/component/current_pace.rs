@@ -8,9 +8,9 @@ use crate::analysis::current_pace;
 use crate::settings::{Color, Field, Gradient, SettingsDescription, Value};
 use crate::timing::formatter::{Accuracy, Regular, TimeFormatter};
 use crate::{comparison, Timer, TimerPhase};
+use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
 use serde_json::{to_writer, Result};
-use std::borrow::Cow;
 use std::io::Write;
 
 /// The Current Pace Component is a component that shows a prediction of the

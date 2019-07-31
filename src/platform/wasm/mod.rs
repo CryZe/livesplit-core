@@ -4,7 +4,7 @@ mod time;
 
 pub use self::time::*;
 
-use std::mem;
+use core::mem;
 
 #[no_mangle]
 pub extern "C" fn alloc(size: usize) -> *mut u8 {
@@ -22,7 +22,7 @@ pub extern "C" fn dealloc(ptr: *mut u8, cap: usize) {
 }
 
 use chrono::{DateTime, NaiveDateTime, Utc};
-use std::mem::uninitialized;
+use core::mem::uninitialized;
 
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, Debug, Default)]

@@ -46,6 +46,8 @@
 //! assert_eq!(timer.current_phase(), TimerPhase::NotRunning);
 //! ```
 
+extern crate alloc;
+
 mod platform;
 
 #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]

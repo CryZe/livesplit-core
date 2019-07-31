@@ -5,9 +5,9 @@
 use super::DEFAULT_KEY_VALUE_GRADIENT;
 use crate::settings::{Color, Field, Gradient, SettingsDescription, Value};
 use crate::Timer;
+use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
 use serde_json::{to_writer, Result};
-use std::borrow::Cow;
 use std::io::Write;
 
 /// The Current Comparison Component is a component that shows the name of the

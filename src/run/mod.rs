@@ -34,9 +34,9 @@ pub use segment_history::SegmentHistory;
 
 use crate::comparison::{default_generators, personal_best, ComparisonGenerator};
 use crate::{AtomicDateTime, Image, Time, TimeSpan, TimingMethod};
+use alloc::borrow::Cow;
+use core::cmp::max;
 use ordered_float::OrderedFloat;
-use std::borrow::Cow;
-use std::cmp::max;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use unicase;

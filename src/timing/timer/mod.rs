@@ -1,9 +1,9 @@
 use crate::comparison::personal_best;
 use crate::TimerPhase::*;
 use crate::{AtomicDateTime, Run, Segment, Time, TimeSpan, TimeStamp, TimerPhase, TimingMethod};
+use alloc::sync::Arc;
+use core::mem;
 use parking_lot::RwLock;
-use std::mem;
-use std::sync::Arc;
 
 #[cfg(test)]
 mod tests;

@@ -41,8 +41,8 @@ pub use self::regular::Regular;
 pub use self::short::Short;
 
 use crate::TimeSpan;
-use std::cmp::min;
-use std::fmt::Display;
+use core::cmp::min;
+use core::fmt::Display;
 
 /// Time Formatters can be used to format optional Time Spans in various ways.
 pub trait TimeFormatter<'a> {

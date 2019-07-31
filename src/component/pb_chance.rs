@@ -7,9 +7,9 @@
 use super::DEFAULT_KEY_VALUE_GRADIENT;
 use crate::settings::{Color, Field, Gradient, SettingsDescription, Value};
 use crate::{analysis::pb_chance, Timer};
+use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
 use serde_json::{to_writer, Result};
-use std::borrow::Cow;
 use std::io::Write;
 
 /// The PB Chance Component is a component that shows how likely it is to beat

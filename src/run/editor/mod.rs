@@ -7,10 +7,10 @@
 use super::{ComparisonError, ComparisonResult};
 use crate::timing::ParseError as ParseTimeSpanError;
 use crate::{comparison, CachedImageId, Image, Run, Segment, Time, TimeSpan, TimingMethod};
+use core::mem::swap;
+use core::num::ParseIntError;
 use odds::slice::rotate_left;
 use snafu::{OptionExt, ResultExt};
-use std::mem::swap;
-use std::num::ParseIntError;
 
 pub mod cleaning;
 mod fuzzy_list;

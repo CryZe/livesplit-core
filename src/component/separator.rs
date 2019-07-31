@@ -4,9 +4,9 @@
 
 use crate::settings::{SettingsDescription, Value};
 use crate::Timer;
+use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
 use serde_json::{to_writer, Result};
-use std::borrow::Cow;
 use std::io::Write;
 
 /// The Separator Component is a simple component that only serves to render
