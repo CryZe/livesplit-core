@@ -88,7 +88,7 @@ impl Image {
     /// Modifies an image by replacing its image data with the new image data
     /// provided. The image's ID changes to a new unique ID.
     pub fn modify(&mut self, data: &[u8]) {
-        #[cfg(feature = "image-shrinking")]
+        #[cfg(all(feature = "std", feature = "image-shrinking"))]
         let data = {
             use crate::image_shrinking::shrink;
             const MAX_IMAGE_SIZE: u32 = 128;

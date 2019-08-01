@@ -1,5 +1,4 @@
-use crate::platform::Duration as StdDuration;
-use chrono::Duration;
+use crate::platform::Duration;
 use core::num::ParseFloatError;
 use core::ops::{AddAssign, SubAssign};
 use core::str::FromStr;
@@ -105,8 +104,8 @@ impl Default for TimeSpan {
     }
 }
 
-impl From<StdDuration> for TimeSpan {
-    fn from(duration: StdDuration) -> Self {
+impl From<core::time::Duration> for TimeSpan {
+    fn from(duration: core::time::Duration) -> Self {
         TimeSpan(Duration::from_std(duration).unwrap())
     }
 }

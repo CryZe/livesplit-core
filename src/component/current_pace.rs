@@ -10,8 +10,6 @@ use crate::timing::formatter::{Accuracy, Regular, TimeFormatter};
 use crate::{comparison, Timer, TimerPhase};
 use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
-use serde_json::{to_writer, Result};
-use std::io::Write;
 
 /// The Current Pace Component is a component that shows a prediction of the
 /// current attempt's final time, if the current attempt's pace matches the
@@ -76,13 +74,14 @@ pub struct State {
     pub display_two_rows: bool,
 }
 
+#[cfg(feature = "std")]
 impl State {
     /// Encodes the state object's information as JSON.
-    pub fn write_json<W>(&self, writer: W) -> Result<()>
+    pub fn write_json<W>(&self, writer: W) -> serde_json::Result<()>
     where
-        W: Write,
+        W: std::io::Write,
     {
-        to_writer(writer, self)
+        serde_json::to_writer(writer, self)
     }
 }
 

@@ -3,6 +3,7 @@
 mod time;
 
 pub use self::time::*;
+pub use chrono::{DateTime, Duration, Utc, Local};
 
 use core::mem;
 
@@ -21,7 +22,7 @@ pub extern "C" fn dealloc(ptr: *mut u8, cap: usize) {
     }
 }
 
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::NaiveDateTime;
 use core::mem::uninitialized;
 
 #[repr(C)]

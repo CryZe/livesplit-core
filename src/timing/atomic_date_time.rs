@@ -1,6 +1,6 @@
 use crate::platform::utc_now;
 use crate::TimeSpan;
-use chrono::{DateTime, Utc};
+use crate::platform::{DateTime, Utc};
 use core::ops::Sub;
 
 /// An Atomic Date Time represents a UTC Date Time that tries to be as close to

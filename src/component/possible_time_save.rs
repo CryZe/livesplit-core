@@ -10,10 +10,8 @@ use crate::settings::{Color, Field, Gradient, SettingsDescription, Value};
 use crate::timing::formatter::{Accuracy, PossibleTimeSave, TimeFormatter};
 use crate::{comparison, Timer, TimerPhase};
 use serde::{Deserialize, Serialize};
-use serde_json::{to_writer, Result};
 use alloc::borrow::Cow;
 use core::fmt::Write as FmtWrite;
-use std::io::Write;
 
 /// The Possible Time Save Component is a component that shows how much time the
 /// chosen comparison could've saved for the current segment, based on the Best
@@ -84,13 +82,14 @@ pub struct State {
     pub display_two_rows: bool,
 }
 
+#[cfg(feature = "std")]
 impl State {
     /// Encodes the state object's information as JSON.
-    pub fn write_json<W>(&self, writer: W) -> Result<()>
+    pub fn write_json<W>(&self, writer: W) -> serde_json::Result<()>
     where
-        W: Write,
+        W: std::io::Write,
     {
-        to_writer(writer, self)
+        serde_json::to_writer(writer, self)
     }
 }
 

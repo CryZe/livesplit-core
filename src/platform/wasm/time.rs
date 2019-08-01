@@ -24,5 +24,3 @@ impl Sub for Instant {
         Duration::new(secs, nanos)
     }
 }
-
-pub use std::time::Duration;

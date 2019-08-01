@@ -10,10 +10,8 @@ use crate::settings::{Color, Field, Gradient, SemanticColor, SettingsDescription
 use crate::timing::formatter::{Accuracy, Delta, PossibleTimeSave, TimeFormatter};
 use crate::{analysis, comparison, GeneralLayoutSettings, Timer, TimerPhase};
 use serde::{Deserialize, Serialize};
-use serde_json::{to_writer, Result};
 use alloc::borrow::Cow;
 use core::fmt::Write as FmtWrite;
-use std::io::Write;
 
 /// The Previous Segment Component is a component that shows how much time was
 /// saved or lost during the previous segment based on the chosen comparison.
@@ -85,13 +83,14 @@ pub struct State {
     pub display_two_rows: bool,
 }
 
+#[cfg(feature = "std")]
 impl State {
     /// Encodes the state object's information as JSON.
-    pub fn write_json<W>(&self, writer: W) -> Result<()>
+    pub fn write_json<W>(&self, writer: W) -> serde_json::Result<()>
     where
-        W: Write,
+        W: std::io::Write,
     {
-        to_writer(writer, self)
+        serde_json::to_writer(writer, self)
     }
 }
 

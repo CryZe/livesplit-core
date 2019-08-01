@@ -12,6 +12,7 @@
     clippy::redundant_closure_call,
     clippy::new_ret_no_self
 )]
+// #![no_std]
 
 //! livesplit-core is a library that provides a lot of functionality for creating a speedrun timer.
 //!
@@ -62,10 +63,12 @@ macro_rules! catch {
 pub mod analysis;
 pub mod comparison;
 pub mod component;
+#[cfg(feature = "std")]
 mod hotkey_config;
+#[cfg(feature = "std")]
 mod hotkey_system;
 mod image;
-#[cfg(feature = "image-shrinking")]
+#[cfg(all(feature = "std", feature = "image-shrinking"))]
 mod image_shrinking;
 pub mod layout;
 #[cfg(feature = "rendering")]
@@ -75,22 +78,33 @@ pub mod settings;
 #[cfg(test)]
 pub mod tests_helper;
 pub mod timing;
+#[cfg(feature = "std")]
 mod xml_util;
 
 pub use {
     crate::{
-        hotkey_config::HotkeyConfig,
-        hotkey_system::HotkeySystem,
         image::{CachedImageId, Image},
         layout::{
             Component, Editor as LayoutEditor, GeneralSettings as GeneralLayoutSettings, Layout,
         },
         run::{Attempt, Editor as RunEditor, Run, RunMetadata, Segment, SegmentHistory},
         timing::{
-            AtomicDateTime, GameTime, RealTime, SharedTimer, Time, TimeSpan, TimeStamp, Timer,
+            AtomicDateTime, GameTime, RealTime, Time, TimeSpan, TimeStamp, Timer,
             TimerPhase, TimingMethod,
         },
+        platform::{DateTime, Utc},
     },
-    chrono::{DateTime, Utc},
-    indexmap, livesplit_hotkey as hotkey, palette, parking_lot,
+    palette,
+};
+
+#[cfg(feature = "std")]
+pub use {
+    crate::{
+        hotkey_config::HotkeyConfig,
+        hotkey_system::HotkeySystem,
+        timing::SharedTimer,
+    },
+    livesplit_hotkey as hotkey,
+    index_map,
+    parking_lot,
 };

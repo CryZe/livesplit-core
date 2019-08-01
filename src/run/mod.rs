@@ -17,8 +17,10 @@
 
 mod attempt;
 pub mod editor;
+#[cfg(feature = "std")]
 pub mod parser;
 mod run_metadata;
+#[cfg(feature = "std")]
 pub mod saver;
 mod segment;
 mod segment_history;
@@ -39,7 +41,6 @@ use core::cmp::max;
 use ordered_float::OrderedFloat;
 use std::collections::HashSet;
 use std::path::PathBuf;
-use unicase;
 
 /// A Run stores the split times for a specific game and category of a runner.
 ///

@@ -9,7 +9,7 @@
 use crate::analysis::sum_of_segments::{best, track_branch, Prediction};
 use crate::timing::formatter::{Short, TimeFormatter};
 use crate::{Attempt, Run, Segment, TimeSpan, TimingMethod};
-use chrono::Local;
+use crate::platform::Local;
 use core::fmt;
 use core::mem::replace;
 

@@ -10,6 +10,7 @@ mod general_settings;
 mod layout_direction;
 mod layout_settings;
 mod layout_state;
+#[cfg(feature = "std")]
 pub mod parser;
 
 pub use self::component::Component;

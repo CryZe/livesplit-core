@@ -14,8 +14,6 @@ use crate::timing::formatter::{Accuracy, Regular, TimeFormatter};
 use crate::Timer;
 use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
-use serde_json::{to_writer, Result};
-use std::io::Write;
 
 /// The Sum of Best Segments Component shows the fastest possible time to
 /// complete a run of this category, based on information collected from all the
@@ -80,13 +78,14 @@ pub struct State {
     pub display_two_rows: bool,
 }
 
+#[cfg(feature = "std")]
 impl State {
     /// Encodes the state object's information as JSON.
-    pub fn write_json<W>(&self, writer: W) -> Result<()>
+    pub fn write_json<W>(&self, writer: W) -> serde_json::Result<()>
     where
-        W: Write,
+        W: std::io::Write,
     {
-        to_writer(writer, self)
+        serde_json::to_writer(writer, self)
     }
 }
 
