@@ -50,7 +50,7 @@ parking_lot = { version = "0.9.0", default-features = false, optional = true } #
 quick-xml = { version = "0.15.0", default-features = false, optional = true } # Not no_std, because of io
 serde = { version = "1.0.55", features = ["derive"], default-features = false } # Yes, there is a "std" feature. We don't even use it.
 serde_json = { version = "1.0.8", optional = true } # Not no_std, because of io, but there is a PR https://github.com/serde-rs/json/pull/516
-# snafu = { version = "0.4.3", default-features = false, features = ["rust_1_30"] } # Not no_std, because of std::error::Error, but could be a trivial PR to do everything but std:error::Error on no_std
+snafu = { git = "https://github.com/CryZe/snafu", branch = "no-std", default-features = false, features = ["rust_1_30"] } # Not no_std, because of std::error::Error, but could be a trivial PR to do everything but std:error::Error on no_std
 unicase = { git = "https://github.com/CryZe/unicase", branch = "no-std", default-features = false } # Temporary fork
 utf-8 = { version = "0.7.4", optional = true } # Not no_std, because of io
 
@@ -73,7 +73,7 @@ vek = { version = "0.9.8", default-features = false, optional = true }
 
 [features]
 # default = ["image-shrinking"]
-std = ["base64", "byteorder", "chrono", "image", "indexmap", "livesplit-hotkey", "parking_lot", "quick-xml", "serde_json", "utf-8"]
+std = ["base64", "byteorder", "chrono", "image", "indexmap", "livesplit-hotkey", "parking_lot", "quick-xml", "serde_json", "utf-8", "snafu/std"]
 more-image-formats = ["image/webp", "image/pnm", "image/ico", "image/jpeg", "image/gif_codec", "image/tiff", "image/tga", "image/bmp", "image/hdr"]
 image-shrinking = ["more-image-formats"]
 rendering = ["more-image-formats", "euclid", "livesplit-title-abbreviations", "lyon", "rusttype", "smallvec"]

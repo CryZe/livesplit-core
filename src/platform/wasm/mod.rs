@@ -3,7 +3,8 @@
 mod time;
 
 pub use self::time::*;
-pub use chrono::{DateTime, Duration, Utc, Local};
+pub use chrono::{DateTime, Duration, Local, Utc};
+pub use palette;
 
 use core::mem;
 

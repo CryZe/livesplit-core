@@ -37,10 +37,9 @@ pub use timer::Component as Timer;
 pub use title::Component as Title;
 pub use total_playtime::Component as TotalPlaytime;
 
+use crate::palette::{rgb::Rgb, Alpha};
 use crate::settings::{Color, Gradient};
 use core::marker::PhantomData;
-use palette::rgb::Rgb;
-use palette::Alpha;
 
 const DEFAULT_KEY_VALUE_GRADIENT: Gradient = Gradient::Vertical(
     Color {

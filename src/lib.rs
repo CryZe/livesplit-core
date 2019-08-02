@@ -81,30 +81,19 @@ pub mod timing;
 #[cfg(feature = "std")]
 mod xml_util;
 
-pub use {
-    crate::{
-        image::{CachedImageId, Image},
-        layout::{
-            Component, Editor as LayoutEditor, GeneralSettings as GeneralLayoutSettings, Layout,
-        },
-        run::{Attempt, Editor as RunEditor, Run, RunMetadata, Segment, SegmentHistory},
-        timing::{
-            AtomicDateTime, GameTime, RealTime, Time, TimeSpan, TimeStamp, Timer,
-            TimerPhase, TimingMethod,
-        },
-        platform::{DateTime, Utc},
+pub use crate::{
+    image::{CachedImageId, Image},
+    layout::{Component, Editor as LayoutEditor, GeneralSettings as GeneralLayoutSettings, Layout},
+    platform::{palette, DateTime, Utc},
+    run::{Attempt, Editor as RunEditor, Run, RunMetadata, Segment, SegmentHistory},
+    timing::{
+        AtomicDateTime, GameTime, RealTime, Time, TimeSpan, TimeStamp, Timer, TimerPhase,
+        TimingMethod,
     },
-    palette,
 };
 
 #[cfg(feature = "std")]
 pub use {
-    crate::{
-        hotkey_config::HotkeyConfig,
-        hotkey_system::HotkeySystem,
-        timing::SharedTimer,
-    },
-    livesplit_hotkey as hotkey,
-    index_map,
-    parking_lot,
+    crate::{hotkey_config::HotkeyConfig, hotkey_system::HotkeySystem, timing::SharedTimer},
+    index_map, livesplit_hotkey as hotkey, parking_lot,
 };

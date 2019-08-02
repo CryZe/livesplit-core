@@ -4,12 +4,11 @@
 //! current attempt is doing compared to the chosen comparison.
 
 use crate::analysis::split_color;
+use crate::palette::{rgb::LinSrgb, Hsv};
 use crate::settings::{Color, Field, Gradient, SemanticColor, SettingsDescription, Value};
 use crate::timing::formatter::{timer as formatter, Accuracy, DigitsFormat, TimeFormatter};
 use crate::{GeneralLayoutSettings, TimeSpan, Timer, TimerPhase, TimingMethod};
 use alloc::borrow::Cow;
-use palette::rgb::LinSrgb;
-use palette::Hsv;
 use serde::{Deserialize, Serialize};
 
 /// The Timer Component is a component that shows the total time of the current
