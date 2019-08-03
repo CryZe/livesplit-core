@@ -94,7 +94,7 @@ pub use crate::{
 pub use palette;
 
 #[cfg(not(feature = "std"))]
-pub use crate::platform::{Clock, register_clock};
+pub use crate::platform::{register_clock, Clock, Duration};
 
 #[cfg(not(feature = "std"))]
 pub mod hotkey {
@@ -102,7 +102,7 @@ pub mod hotkey {
     pub struct KeyCode;
 
     impl core::str::FromStr for KeyCode {
-         type Err = ();
+        type Err = ();
 
         fn from_str(_: &str) -> Result<Self, Self::Err> {
             Ok(KeyCode)
