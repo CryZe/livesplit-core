@@ -45,14 +45,16 @@ indexmap = { version = "1.0.1", default-features = false, features = ["serde-1"]
 livesplit-hotkey = { path = "crates/livesplit-hotkey", version = "0.5.0", optional = true } # Not no_std, but we don't even need this on no_std.
 odds = { version = "0.3.1", default-features = false } # Yes there is a "std" feature. We don't even use it.
 ordered-float = { version = "1.0.0", default-features = false } # Yes, there is a "std" feature. We don't even use it.
-# palette = { git = "https://github.com/Ogeon/palette", default-features = false } # Yes, there is a "std" feature. We don't even use it. But it is unreleased. And it's broken
+palette = { git = "https://github.com/CryZe/palette", branch = "no-std", default-features = false } # Yes, there is a "std" feature. We don't even use it. But it is unreleased. Temporary fork to fix a bug.
 parking_lot = { version = "0.9.0", default-features = false, optional = true } # No idea tbh, but we probably don't even need parking_lot on no_std
 quick-xml = { version = "0.15.0", default-features = false, optional = true } # Not no_std, because of io
-serde = { version = "1.0.55", features = ["derive"], default-features = false } # Yes, there is a "std" feature. We don't even use it.
+serde = { version = "1.0.98", features = ["derive", "alloc"], default-features = false } # Yes, there is a "std" feature. We don't even use it.
 serde_json = { version = "1.0.8", optional = true } # Not no_std, because of io, but there is a PR https://github.com/serde-rs/json/pull/516
 snafu = { git = "https://github.com/CryZe/snafu", branch = "no-std", default-features = false, features = ["rust_1_30"] } # Not no_std, because of std::error::Error, but could be a trivial PR to do everything but std:error::Error on no_std
 unicase = { git = "https://github.com/CryZe/unicase", branch = "no-std", default-features = false } # Temporary fork
 utf-8 = { version = "0.7.4", optional = true } # Not no_std, because of io
+hashbrown = { git = "https://github.com/rust-lang/hashbrown", default-features = false }
+libm = "0.1.4"
 
 # Rendering
 euclid = { version = "0.20.0", default-features = false, optional = true }
@@ -72,7 +74,7 @@ vek = { version = "0.9.8", default-features = false, optional = true }
 # crc = "1.8.1"
 
 [features]
-# default = ["image-shrinking"]
+default = ["image-shrinking", "std"]
 std = ["base64", "byteorder", "chrono", "image", "indexmap", "livesplit-hotkey", "parking_lot", "quick-xml", "serde_json", "utf-8", "snafu/std"]
 more-image-formats = ["image/webp", "image/pnm", "image/ico", "image/jpeg", "image/gif_codec", "image/tiff", "image/tga", "image/bmp", "image/hdr"]
 image-shrinking = ["more-image-formats"]

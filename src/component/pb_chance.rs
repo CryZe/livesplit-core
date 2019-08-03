@@ -9,6 +9,7 @@ use crate::settings::{Color, Field, Gradient, SettingsDescription, Value};
 use crate::{analysis::pb_chance, Timer};
 use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
+use crate::platform::prelude::*;
 
 /// The PB Chance Component is a component that shows how likely it is to beat
 /// the Personal Best. If there is no active attempt it shows the general chance

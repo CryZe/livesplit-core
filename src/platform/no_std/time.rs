@@ -2,9 +2,18 @@ use core::marker::PhantomData;
 use core::ops::{Add, Sub};
 use derive_more::{Add, Neg, Sub};
 use ordered_float::OrderedFloat;
+use super::prelude::*;
 
-#[derive(Copy, Clone, PartialEq, Debug)]
-struct FFIDateTime;
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
+struct FFIDateTime {
+    year: u16,
+    month: u8,
+    day: u8,
+    hours: u8,
+    minutes: u8,
+    seconds: u8,
+}
+
 pub struct Local;
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct DateTime<T>(PhantomData<T>, FFIDateTime);
@@ -74,7 +83,7 @@ impl<T> Add<Duration> for DateTime<T> {
 
 impl<T> DateTime<T> {
     pub fn signed_duration_since<Tz2: TimeZone>(self, _: DateTime<Tz2>) -> Duration {
-        Duration::zero()
+        Duration::nanoseconds(0)
     }
 
     pub fn format(&self, _: &str) -> String {

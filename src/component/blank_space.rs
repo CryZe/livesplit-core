@@ -7,6 +7,7 @@ use crate::settings::{Field, Gradient, SettingsDescription, Value};
 use crate::Timer;
 use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
+use crate::platform::prelude::*;
 
 /// The Blank Space Component is simply an empty component that doesn't show
 /// anything other than a background. It mostly serves as padding between other

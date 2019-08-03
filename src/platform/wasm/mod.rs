@@ -4,7 +4,8 @@ mod time;
 
 pub use self::time::*;
 pub use chrono::{DateTime, Duration, Local, Utc};
-pub use palette;
+pub use indexmap;
+pub mod prelude {}
 
 use core::mem;
 

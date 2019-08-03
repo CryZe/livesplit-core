@@ -7,6 +7,7 @@ use crate::settings::{Alignment, Color, Field, Gradient, SettingsDescription, Va
 use crate::{CachedImageId, Image, Timer, TimerPhase};
 use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
+use crate::platform::prelude::*;
 
 #[cfg(test)]
 mod tests;

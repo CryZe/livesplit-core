@@ -7,6 +7,7 @@ use crate::settings::{Color, Field, Gradient, SettingsDescription, Value};
 use crate::Timer;
 use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
+use crate::platform::prelude::*;
 
 /// The Current Comparison Component is a component that shows the name of the
 /// comparison that is currently selected to be compared against.

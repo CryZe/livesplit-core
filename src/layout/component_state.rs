@@ -4,6 +4,7 @@ use crate::component::{
     total_playtime,
 };
 use serde::{Deserialize, Serialize};
+use crate::platform::prelude::*;
 
 /// The state object for one of the components available.
 #[derive(Serialize, Deserialize)]

@@ -12,7 +12,7 @@
     clippy::redundant_closure_call,
     clippy::new_ret_no_self
 )]
-// #![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 //! livesplit-core is a library that provides a lot of functionality for creating a speedrun timer.
 //!
@@ -84,16 +84,31 @@ mod xml_util;
 pub use crate::{
     image::{CachedImageId, Image},
     layout::{Component, Editor as LayoutEditor, GeneralSettings as GeneralLayoutSettings, Layout},
-    platform::{palette, DateTime, Utc},
+    platform::{indexmap, DateTime, Utc},
     run::{Attempt, Editor as RunEditor, Run, RunMetadata, Segment, SegmentHistory},
     timing::{
         AtomicDateTime, GameTime, RealTime, Time, TimeSpan, TimeStamp, Timer, TimerPhase,
         TimingMethod,
     },
 };
+pub use palette;
+
+#[cfg(not(feature = "std"))]
+pub mod hotkey {
+    #[derive(Copy, Clone, serde::Serialize, serde::Deserialize)]
+    pub struct KeyCode;
+
+    impl core::str::FromStr for KeyCode {
+         type Err = ();
+
+        fn from_str(_: &str) -> Result<Self, Self::Err> {
+            Ok(KeyCode)
+        }
+    }
+}
 
 #[cfg(feature = "std")]
 pub use {
     crate::{hotkey_config::HotkeyConfig, hotkey_system::HotkeySystem, timing::SharedTimer},
-    index_map, livesplit_hotkey as hotkey, parking_lot,
+    livesplit_hotkey as hotkey, parking_lot,
 };

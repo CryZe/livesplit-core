@@ -12,6 +12,7 @@ use crate::{analysis, comparison, GeneralLayoutSettings, Timer, TimerPhase};
 use serde::{Deserialize, Serialize};
 use alloc::borrow::Cow;
 use core::fmt::Write as FmtWrite;
+use crate::platform::prelude::*;
 
 /// The Previous Segment Component is a component that shows how much time was
 /// saved or lost during the previous segment based on the chosen comparison.

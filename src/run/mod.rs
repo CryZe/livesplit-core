@@ -39,8 +39,12 @@ use crate::{AtomicDateTime, Image, Time, TimeSpan, TimingMethod};
 use alloc::borrow::Cow;
 use core::cmp::max;
 use ordered_float::OrderedFloat;
-use std::collections::HashSet;
+use hashbrown::HashSet;
+#[cfg(feature = "std")]
 use std::path::PathBuf;
+#[cfg(not(feature = "std"))]
+use alloc::string::String as PathBuf;
+use crate::platform::prelude::*;
 
 /// A Run stores the split times for a specific game and category of a runner.
 ///

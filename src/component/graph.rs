@@ -7,6 +7,7 @@ use crate::settings::{Color, Field, SettingsDescription, Value};
 use crate::{analysis, comparison, GeneralLayoutSettings, TimeSpan, Timer, TimerPhase};
 use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
+use crate::platform::prelude::*;
 
 const GRAPH_EDGE_VALUE: f32 = 200.0;
 const GRAPH_EDGE_MIN: f32 = 5.0;

@@ -8,6 +8,7 @@ use crate::settings::{Color, Field, Gradient, SettingsDescription, Value};
 use alloc::borrow::Cow;
 use core::mem::replace;
 use serde::{Deserialize, Serialize};
+use crate::platform::prelude::*;
 
 /// The Text Component simply visualizes any given text. This can either be a
 /// single centered text, or split up into a left and right text, which is

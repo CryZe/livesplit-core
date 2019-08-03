@@ -43,6 +43,8 @@ pub use self::short::Short;
 use crate::TimeSpan;
 use core::cmp::min;
 use core::fmt::Display;
+#[cfg(not(feature = "std"))]
+use libm::F64Ext;
 
 /// Time Formatters can be used to format optional Time Spans in various ways.
 pub trait TimeFormatter<'a> {

@@ -5,6 +5,7 @@ use crate::timing::formatter::none_wrapper::EmptyWrapper;
 use crate::timing::formatter::{Accuracy, Short, TimeFormatter};
 use crate::CachedImageId;
 use serde::{Deserialize, Serialize};
+use crate::platform::prelude::*;
 
 /// Represents the current state of the Run Editor in order to visualize it
 /// properly.

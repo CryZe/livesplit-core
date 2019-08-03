@@ -10,6 +10,7 @@ use crate::timing::formatter::{timer as formatter, Accuracy, DigitsFormat, TimeF
 use crate::{GeneralLayoutSettings, TimeSpan, Timer, TimerPhase, TimingMethod};
 use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
+use crate::platform::prelude::*;
 
 /// The Timer Component is a component that shows the total time of the current
 /// attempt as a digital clock. The color of the time shown is based on a how

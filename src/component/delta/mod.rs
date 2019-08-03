@@ -9,6 +9,7 @@ use crate::timing::formatter::{Accuracy, Delta, TimeFormatter};
 use crate::{comparison, GeneralLayoutSettings, Timer};
 use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
+use crate::platform::prelude::*;
 
 #[cfg(test)]
 mod tests;

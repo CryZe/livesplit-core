@@ -1,8 +1,5 @@
-use base64::{self, STANDARD};
+use crate::platform::prelude::*;
 use core::sync::atomic::{AtomicUsize, Ordering};
-use std::fs::File;
-use std::io::{self, Read};
-use std::path::Path;
 
 static LAST_IMAGE_ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -47,12 +44,15 @@ impl Image {
 
     /// Loads an image from the file system. You need to provide a buffer used
     /// for temporarily storing the image's data.
-    pub fn from_file<P, B>(path: P, mut buf: B) -> io::Result<Image>
+    #[cfg(feature = "std")]
+    pub fn from_file<P, B>(path: P, mut buf: B) -> std::io::Result<Image>
     where
-        P: AsRef<Path>,
+        P: AsRef<std::path::Path>,
         B: AsMut<Vec<u8>>,
     {
-        let mut file = File::open(path)?;
+        use std::io::Read;
+
+        let mut file = std::fs::File::open(path)?;
         let len = file.metadata()?.len() as usize;
 
         let buf = buf.as_mut();
@@ -87,8 +87,9 @@ impl Image {
 
     /// Modifies an image by replacing its image data with the new image data
     /// provided. The image's ID changes to a new unique ID.
+    #[cfg(feature = "std")]
     pub fn modify(&mut self, data: &[u8]) {
-        #[cfg(all(feature = "std", feature = "image-shrinking"))]
+        #[cfg(feature = "image-shrinking")]
         let data = {
             use crate::image_shrinking::shrink;
             const MAX_IMAGE_SIZE: u32 = 128;
@@ -100,8 +101,18 @@ impl Image {
 
         if !data.is_empty() {
             self.url.push_str("data:;base64,");
-            base64::encode_config_buf(&data, STANDARD, &mut self.url);
+            base64::encode_config_buf(&data, base64::STANDARD, &mut self.url);
         }
+    }
+
+    /// Modifies an image by replacing its image data with the new image data
+    /// provided. The image's ID changes to a new unique ID.
+    #[cfg(not(feature = "std"))]
+    pub fn modify(&mut self, _data: &[u8]) {
+        // FIXME: Should really be fetch_add.
+        self.id = LAST_IMAGE_ID.load(Ordering::SeqCst) + 1;
+        LAST_IMAGE_ID.store(self.id, Ordering::SeqCst);
+        self.url.clear();
     }
 
     /// Checks if the image data is empty.

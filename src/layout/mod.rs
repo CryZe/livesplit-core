@@ -24,6 +24,7 @@ pub use self::layout_state::LayoutState;
 
 use crate::component::{previous_segment, splits, timer, title};
 use crate::timing::Timer;
+use crate::platform::prelude::*;
 
 /// A Layout allows you to combine multiple components together to visualize a
 /// variety of information the runner is interested in.

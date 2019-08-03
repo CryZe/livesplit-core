@@ -9,6 +9,7 @@ use crate::timing::formatter::{Days, Regular, TimeFormatter};
 use crate::Timer;
 use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
+use crate::platform::prelude::*;
 
 /// The Total Playtime Component is a component that shows the total amount of
 /// time that the current category has been played for.

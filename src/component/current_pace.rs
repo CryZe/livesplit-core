@@ -10,6 +10,7 @@ use crate::timing::formatter::{Accuracy, Regular, TimeFormatter};
 use crate::{comparison, Timer, TimerPhase};
 use alloc::borrow::Cow;
 use serde::{Deserialize, Serialize};
+use crate::platform::prelude::*;
 
 /// The Current Pace Component is a component that shows a prediction of the
 /// current attempt's final time, if the current attempt's pace matches the
