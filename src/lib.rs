@@ -94,6 +94,9 @@ pub use crate::{
 pub use palette;
 
 #[cfg(not(feature = "std"))]
+pub use crate::platform::{Clock, register_clock};
+
+#[cfg(not(feature = "std"))]
 pub mod hotkey {
     #[derive(Copy, Clone, serde::Serialize, serde::Deserialize)]
     pub struct KeyCode;
