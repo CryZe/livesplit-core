@@ -1,8 +1,24 @@
+use super::prelude::*;
 use core::marker::PhantomData;
 use core::ops::{Add, Sub};
+use core::sync::atomic::{self, AtomicPtr};
 use derive_more::{Add, Neg, Sub};
-use ordered_float::OrderedFloat;
-use super::prelude::*;
+
+pub trait Clock: 'static {
+    fn now(&self) -> Duration;
+}
+
+static CLOCK: AtomicPtr<Box<dyn Clock>> = AtomicPtr::new(core::ptr::null_mut());
+
+pub fn register_clock<C: Clock>(clock: C) {
+    let clock: Box<dyn Clock> = Box::new(clock);
+    let clock = Box::new(clock);
+    // FIXME: Should be compare_and_swap. This is racy.
+    if !CLOCK.load(atomic::Ordering::SeqCst).is_null() {
+        panic!("The clock has already been registered");
+    }
+    CLOCK.store(Box::into_raw(clock), atomic::Ordering::SeqCst);
+}
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 struct FFIDateTime {
@@ -28,12 +44,17 @@ pub struct ParseError;
 #[derive(Add, Sub, Neg, Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Duration(i128);
 #[derive(Copy, Clone, PartialOrd, PartialEq, Ord, Eq, Debug)]
-pub struct Instant(OrderedFloat<f64>);
+pub struct Instant(i128);
 
 impl Instant {
     pub fn now() -> Self {
-        unimplemented!()
-        // Instant(OrderedFloat(unsafe { Instant_now() }))
+        let clock = CLOCK.load(atomic::Ordering::SeqCst);
+        if clock.is_null() {
+            panic!("No clock registered");
+        }
+        let clock = unsafe { &*clock };
+        let Duration(t) = clock.now();
+        Instant(t)
     }
 }
 
@@ -41,9 +62,7 @@ impl Sub for Instant {
     type Output = Duration;
 
     fn sub(self, rhs: Instant) -> Duration {
-        let total_secs = (self.0).0 - (rhs.0).0;
-        let total_nanos = total_secs * 1_000_000_000.0;
-        Duration(total_nanos as _)
+        Duration(self.0 - rhs.0)
     }
 }
 
