@@ -8,7 +8,7 @@ use {
         },
         settings::Gradient,
     },
-    lyon::tessellation::{
+    lyon_tessellation::{
         basic_shapes::{fill_circle, fill_polyline, stroke_polyline},
         FillOptions, FillTessellator, StrokeOptions,
     },

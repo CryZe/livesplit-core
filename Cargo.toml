@@ -57,11 +57,12 @@ hashbrown = { git = "https://github.com/rust-lang/hashbrown", default-features =
 libm = "0.1.4"
 
 # Rendering
-euclid = { version = "0.20.0", default-features = false, optional = true }
+euclid = { git = "https://github.com/CryZe/euclid", branch = "actual-no-std", default-features = false, optional = true } # Is blocked by num-traits, which has a PR here: https://github.com/rust-num/num-traits/pull/99
 livesplit-title-abbreviations = { path = "crates/livesplit-title-abbreviations", version = "0.1.0", optional = true }
-lyon = { version = "0.14.0", default-features = false, optional = true }
-rusttype = { version = "0.7.3", default-features = false, optional = true }
-smallvec = { version = "0.6.9", default-features = false, optional = true }
+lyon_path = { git = "https://github.com/CryZe/lyon", branch = "no-std", default-features = false, optional = true }
+lyon_tessellation = { git = "https://github.com/CryZe/lyon", branch = "no-std", default-features = false, optional = true }
+rusttype = { git = "https://github.com/CryZe/rusttype", branch = "no-std", default-features = false, optional = true }
+smallvec = { git = "https://github.com/CryZe/rust-smallvec", branch = "no-std", default-features = false, optional = true } # They only have nightly alloc support.
 
 # Software Rendering
 euc = { version = "0.3.0", default-features = false, optional = true }
@@ -74,11 +75,15 @@ vek = { version = "0.9.8", default-features = false, optional = true }
 # crc = "1.8.1"
 
 [features]
-default = ["image-shrinking", "std"]
+# default = ["image-shrinking", "std"]
+default = ["rendering"]
+# TODO: Double Check that std properly communicates the std feature through the dependency graph
 std = ["base64", "byteorder", "chrono", "image", "indexmap", "livesplit-hotkey", "parking_lot", "quick-xml", "serde_json", "utf-8", "snafu/std"]
 more-image-formats = ["image/webp", "image/pnm", "image/ico", "image/jpeg", "image/gif_codec", "image/tiff", "image/tga", "image/bmp", "image/hdr"]
 image-shrinking = ["more-image-formats"]
-rendering = ["more-image-formats", "euclid", "livesplit-title-abbreviations", "lyon", "rusttype", "smallvec"]
+# rendering = ["more-image-formats", "euclid", "livesplit-title-abbreviations",
+# "lyon", "rusttype", "smallvec"]
+rendering = ["euclid", "livesplit-title-abbreviations", "lyon_path", "lyon_tessellation", "rusttype", "smallvec"]
 software-rendering = ["rendering", "euc", "vek"]
 
 [[bench]]

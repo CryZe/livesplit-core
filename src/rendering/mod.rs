@@ -81,6 +81,7 @@ use {
     euclid::{Transform2D, UnknownUnit},
     rusttype::Font,
 };
+use crate::platform::prelude::*;
 
 pub use self::mesh::{Mesh, Vertex};
 pub use euclid;
@@ -477,6 +478,12 @@ impl<B: Backend> RenderContext<'_, B> {
             .render_mesh(mesh, self.transform, [decode_color(&color); 4], None)
     }
 
+    #[cfg(not(feature = "std"))]
+    fn create_icon(&mut self, _image_url: &str) -> Option<Icon<B::Texture>> {
+        None
+    }
+
+    #[cfg(feature = "std")]
     fn create_icon(&mut self, image_url: &str) -> Option<Icon<B::Texture>> {
         if !image_url.starts_with("data:;base64,") {
             return None;
