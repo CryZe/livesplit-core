@@ -72,6 +72,7 @@ mod mesh;
 #[cfg(feature = "software-rendering")]
 pub mod software;
 
+use crate::platform::prelude::*;
 use {
     self::{glyph_cache::GlyphCache, icon::Icon},
     crate::{
@@ -82,7 +83,6 @@ use {
     rusttype::Font,
     std::iter,
 };
-use crate::platform::prelude::*;
 
 pub use self::mesh::{Mesh, Vertex};
 pub use euclid;
@@ -476,7 +476,7 @@ impl<B: Backend> RenderContext<'_, B> {
     }
 
     #[cfg(not(feature = "std"))]
-    fn create_icon(&mut self, image_data: &[u8]) -> Option<Icon<B::Texture>> {
+    fn create_icon(&mut self, _image_data: &[u8]) -> Option<Icon<B::Texture>> {
         None
     }
 
