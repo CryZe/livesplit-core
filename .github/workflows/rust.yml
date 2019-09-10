@@ -1,0 +1,44 @@
+name: Rust
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+        include:
+        - target: x86_64-unknown-linux-gnu
+          os: ubuntu-latest
+          os_name: linux
+          cargo_dir: ''
+          toolchain: stable
+          no_dylib: ''
+          disable_tests: ''
+        - target: aarch64-unknown-linux-gnu
+          os: ubuntu-latest
+          os_name: linux
+          cargo_dir: ''
+          toolchain: stable
+          no_dylib: ''
+          disable_tests: ''
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install Rust Compiler
+      if: matrix.os == 'macOS-latest'
+      run: curl https://sh.rustup.rs -sSf | sh -s -- -y
+    - name: Install cross
+      run: sh ci/install.sh
+      env:
+        TRAVIS_OS_NAME: ${{ matrix.os_name }}
+    - name: Build and Test
+      run: bash ci/script.sh
+      env:
+        TARGET: ${{ matrix.target }}
+        NO_DYLIB: ${{ matrix.no_dylib }}
+        DISABLE_TESTS: ${{ matrix.disable_tests }}
