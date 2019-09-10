@@ -42,3 +42,4 @@ jobs:
         TARGET: ${{ matrix.target }}
         NO_DYLIB: ${{ matrix.no_dylib }}
         DISABLE_TESTS: ${{ matrix.disable_tests }}
+        TERM: xterm
