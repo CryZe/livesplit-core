@@ -1,7 +1,13 @@
-use livesplit_core::run::{parser, saver};
-use livesplit_core::{Run, Segment};
-use memmem::{Searcher, TwoWaySearcher};
+#[cfg(not(miri))]
+use {
+    livesplit_core::{
+        run::{parser, saver},
+        Run, Segment,
+    },
+    memmem::{Searcher, TwoWaySearcher},
+};
 
+#[cfg(not(miri))]
 #[test]
 fn escaping_works_for_segment_name() {
     let mut run = Run::new();
@@ -15,6 +21,7 @@ fn escaping_works_for_segment_name() {
     assert_eq!(run.segment(0).name(), "A < B");
 }
 
+#[cfg(not(miri))]
 #[test]
 fn escaping_works_for_auto_splitter_settings() {
     let mut run = Run::new();
