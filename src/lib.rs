@@ -87,10 +87,9 @@ pub use crate::{
         TimingMethod,
     },
 };
-pub use palette;
 
 #[cfg(not(feature = "std"))]
-pub use crate::platform::{register_clock, Clock, Duration};
+pub use crate::platform::{register_clock, Clock, Duration, palette};
 
 #[cfg(not(feature = "std"))]
 pub mod hotkey {
@@ -109,5 +108,5 @@ pub mod hotkey {
 #[cfg(feature = "std")]
 pub use {
     crate::{hotkey_config::HotkeyConfig, hotkey_system::HotkeySystem, timing::SharedTimer},
-    livesplit_hotkey as hotkey, parking_lot,
+    livesplit_hotkey as hotkey, parking_lot, palette,
 };

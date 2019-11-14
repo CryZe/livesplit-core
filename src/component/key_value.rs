@@ -3,11 +3,10 @@
 //! components. They all share the same visual appearance and thus use the same
 //! state object representation.
 
+use crate::platform::palette::{rgb::Rgb, Alpha};
 use crate::platform::prelude::*;
 use crate::settings::{Color, Gradient, SemanticColor};
 use core::marker::PhantomData;
-use palette::rgb::Rgb;
-use palette::Alpha;
 use serde::{Deserialize, Serialize};
 
 /// The state object describes the information to visualize for a key value

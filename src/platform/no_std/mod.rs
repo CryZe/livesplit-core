@@ -2,6 +2,7 @@ mod time;
 pub use self::time::*;
 pub use chrono::{DateTime, Duration, Utc, Utc as Local};
 pub mod indexmap;
+pub mod palette;
 pub mod prelude {
     pub use alloc::borrow::ToOwned;
     pub use alloc::boxed::Box;

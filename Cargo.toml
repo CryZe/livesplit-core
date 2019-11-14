@@ -41,7 +41,6 @@ chrono = { git = "https://github.com/CryZe/chrono", branch = "no-std", features 
 derive_more = { version = "0.99.1", default-features = false, features = ["not", "add", "from", "deref"] }
 odds = { version = "0.3.1", default-features = false }
 ordered-float = { version = "1.0.2", default-features = false }
-palette = { git = "https://github.com/Ogeon/palette", features = ["libm"], default-features = false }
 serde = { version = "1.0.98", features = ["derive", "alloc"], default-features = false }
 snafu = { version = "0.6.0", default-features = false }
 unicase = "2.6.0"
@@ -53,6 +52,7 @@ byteorder = { version = "1.3.2", optional = true } # Not no_std, because of io
 image = { version = "0.22.0", features = ["png_codec"], default-features = false, optional = true } # Not no_std, too much io.
 indexmap = { version = "1.2.0", default-features = false, features = ["serde-1"], optional = true } # Not no_std, but there is a PR https://github.com/bluss/indexmap/pull/92
 livesplit-hotkey = { path = "crates/livesplit-hotkey", version = "0.5.0", optional = true } # Not no_std, but we don't even need this on no_std.
+palette = { git = "https://github.com/Ogeon/palette", features = ["libm"], default-features = false, optional = true }
 parking_lot = { version = "0.9.0", default-features = false, optional = true } # No idea tbh, but we probably don't even need parking_lot on no_std
 quick-xml = { version = "0.17.0", default-features = false, optional = true } # Not no_std, because of io
 serde_json = { version = "1.0.8", optional = true } # Not no_std, because of io, but there is a PR https://github.com/serde-rs/json/pull/516
@@ -83,7 +83,7 @@ default = []
 # FIXME: Workaround for https://github.com/rust-lang/rust/issues/32976 not being stable.
 # This is intentionally negated logic as you should explicitly opt into this more dangerous behavior. You'll see when you can't compile that you need this.
 doesnt-have-atomics = []
-std = ["byteorder", "chrono/std", "chrono/clock", "image", "indexmap", "livesplit-hotkey", "parking_lot", "quick-xml", "serde_json", "utf-8", "snafu/std", "rusttype/std"]
+std = ["byteorder", "chrono/std", "chrono/clock", "image", "indexmap", "livesplit-hotkey", "palette", "parking_lot", "quick-xml", "serde_json", "utf-8", "snafu/std", "rusttype/std"]
 more-image-formats = ["image/webp", "image/pnm", "image/ico", "image/jpeg", "image/gif_codec", "image/tiff", "image/tga", "image/bmp", "image/hdr"]
 image-shrinking = ["std", "more-image-formats"]
 # rendering = ["more-image-formats", "euclid", "livesplit-title-abbreviations",
