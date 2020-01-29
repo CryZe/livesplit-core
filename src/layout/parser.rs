@@ -392,6 +392,7 @@ where
                     }
                     Component::SegmentTime(_) => end_tag(reader, tag.into_buf()),
                     Component::Separator(_) => end_tag(reader, tag.into_buf()),
+                    Component::Slideshow(_) => unreachable!(),
                     Component::Splits(c) => splits::settings(reader, tag.into_buf(), c),
                     Component::SumOfBest(c) => sum_of_best::settings(reader, tag.into_buf(), c),
                     Component::Text(c) => text::settings(reader, tag.into_buf(), c),

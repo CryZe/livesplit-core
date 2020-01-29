@@ -1,8 +1,8 @@
 use super::{ComponentSettings, ComponentState, GeneralSettings};
 use crate::component::{
     blank_space, current_comparison, current_pace, delta, detailed_timer, graph, pb_chance,
-    possible_time_save, previous_segment, segment_time, separator, splits, sum_of_best, text,
-    timer, title, total_playtime,
+    possible_time_save, previous_segment, segment_time, separator, slideshow, splits, sum_of_best,
+    text, timer, title, total_playtime,
 };
 use crate::platform::prelude::*;
 use crate::settings::{SettingsDescription, Value};
@@ -35,6 +35,8 @@ pub enum Component {
     SegmentTime(segment_time::Component),
     /// The Separator Component.
     Separator(separator::Component),
+    /// The Slideshow Component.
+    Slideshow(slideshow::Component),
     /// The Splits Component.
     Splits(splits::Component),
     /// The Sum of Best Component.
@@ -79,6 +81,9 @@ impl Component {
             }
             Component::SegmentTime(component) => ComponentState::KeyValue(component.state(timer)),
             Component::Separator(component) => ComponentState::Separator(component.state(timer)),
+            Component::Slideshow(component) => {
+                ComponentState::KeyValue(component.state(timer, layout_settings))
+            }
             Component::Splits(component) => {
                 ComponentState::Splits(component.state(timer, layout_settings))
             }
@@ -125,6 +130,7 @@ impl Component {
                 ComponentSettings::SegmentTime(component.settings().clone())
             }
             Component::Separator(_) => ComponentSettings::Separator,
+            Component::Slideshow(component) => ComponentSettings::Slideshow(component.settings()),
             Component::Splits(component) => ComponentSettings::Splits(component.settings().clone()),
             Component::SumOfBest(component) => {
                 ComponentSettings::SumOfBest(component.settings().clone())
@@ -152,6 +158,7 @@ impl Component {
             Component::PreviousSegment(component) => component.name(),
             Component::SegmentTime(component) => component.name(),
             Component::Separator(component) => component.name().into(),
+            Component::Slideshow(component) => component.name().into(),
             Component::Splits(component) => component.name().into(),
             Component::SumOfBest(component) => component.name().into(),
             Component::Text(component) => component.name(),
@@ -207,6 +214,7 @@ impl Component {
             Component::PreviousSegment(component) => component.settings_description(),
             Component::SegmentTime(component) => component.settings_description(),
             Component::Separator(component) => component.settings_description(),
+            Component::Slideshow(component) => component.settings_description(),
             Component::Splits(component) => component.settings_description(),
             Component::SumOfBest(component) => component.settings_description(),
             Component::Text(component) => component.settings_description(),
@@ -237,6 +245,7 @@ impl Component {
             Component::PreviousSegment(component) => component.set_value(index, value),
             Component::SegmentTime(component) => component.set_value(index, value),
             Component::Separator(component) => component.set_value(index, value),
+            Component::Slideshow(component) => component.set_value(index, value),
             Component::Splits(component) => component.set_value(index, value),
             Component::SumOfBest(component) => component.set_value(index, value),
             Component::Text(component) => component.set_value(index, value),

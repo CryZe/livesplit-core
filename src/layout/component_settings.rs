@@ -1,8 +1,8 @@
 use super::Component;
 use crate::component::{
     blank_space, current_comparison, current_pace, delta, detailed_timer, graph, pb_chance,
-    possible_time_save, previous_segment, segment_time, separator, splits, sum_of_best, text,
-    timer, title, total_playtime,
+    possible_time_save, previous_segment, segment_time, separator, slideshow, splits, sum_of_best,
+    text, timer, title, total_playtime,
 };
 use crate::platform::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -32,6 +32,8 @@ pub enum ComponentSettings {
     SegmentTime(segment_time::Settings),
     /// The Settings for the Separator Component.
     Separator,
+    /// The Settings for the Slideshow Component.
+    Slideshow(slideshow::Settings),
     /// The Settings for the Splits Component.
     Splits(splits::Settings),
     /// The Settings for the Sum Of Best Component.
@@ -80,6 +82,9 @@ impl From<ComponentSettings> for Component {
                 Component::SegmentTime(segment_time::Component::with_settings(settings))
             }
             ComponentSettings::Separator => Component::Separator(separator::Component::new()),
+            ComponentSettings::Slideshow(settings) => {
+                Component::Slideshow(slideshow::Component::with_settings(settings))
+            }
             ComponentSettings::Splits(settings) => {
                 Component::Splits(splits::Component::with_settings(settings))
             }
