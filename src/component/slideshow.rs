@@ -2,10 +2,11 @@ use super::{
     current_comparison, current_pace, delta, key_value, pb_chance, possible_time_save,
     previous_segment, segment_time, sum_of_best, total_playtime,
 };
+use crate::platform::prelude::*;
 use crate::settings::{SettingsDescription, Value};
 use crate::{AtomicDateTime, GeneralLayoutSettings, TimeSpan, Timer};
+use alloc::collections::VecDeque;
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
 
 #[derive(Clone)]
 enum InnerComponent {
