@@ -51,6 +51,7 @@ pub mod separator_component;
 pub mod separator_component_state;
 pub mod setting_value;
 pub mod shared_timer;
+pub mod slideshow_component;
 pub mod splits_component;
 pub mod splits_component_state;
 pub mod sum_of_best_cleaner;
