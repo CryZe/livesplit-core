@@ -67,7 +67,9 @@ euc = { version = "0.4.2", default-features = false, optional = true }
 vek = { version = "0.9.8", default-features = false, optional = true }
 
 # Networking
+futures-util = { version = "0.3.1", optional = true } # TODO: We may not need this if we do something like search_exact in speedrun-com-api
 splits-io-api = { version = "0.1.2", optional = true }
+speedrun-com-api = { path = "speedrun-com-api", optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 # WebAssembly in the Web
@@ -77,7 +79,7 @@ web-sys = { version = "0.3.28", default-features = false, features = ["Performan
 memmem = "0.1.1"
 criterion = "0.3.0"
 img_hash = "3.0.0"
-tokio = { version = "0.2", features = ["macros"] }
+tokio = { version = "0.2", features = ["macros"] } # TODO: We barely need this
 
 [features]
 default = ["image-shrinking", "std"]
@@ -88,7 +90,7 @@ image-shrinking = ["std", "more-image-formats"]
 rendering = ["std", "more-image-formats", "euclid", "livesplit-title-abbreviations", "lyon", "rusttype", "smallvec"]
 software-rendering = ["rendering", "euc", "vek", "derive_more/mul"]
 wasm-web = ["std", "web-sys", "chrono/wasmbind", "livesplit-hotkey/wasm-web"]
-networking = ["std", "splits-io-api"]
+networking = ["std", "futures-util", "splits-io-api", "speedrun-com-api"]
 
 # FIXME: Some targets don't have atomics, but we can't test for this properly
 # yet. So there's a feature you explicitly have to opt into to deactivate the
