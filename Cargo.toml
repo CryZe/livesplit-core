@@ -75,8 +75,10 @@ web-sys = { version = "0.3.28", default-features = false, features = ["Performan
 
 [dev-dependencies]
 memmem = "0.1.1"
-criterion = "0.3.0"
 img_hash = "3.0.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+criterion = "0.3.0"
 tokio = { version = "0.2", features = ["macros"] }
 
 [features]
@@ -118,3 +120,6 @@ panic = "abort"
 
 [profile.release.build-override]
 opt-level = 0
+
+[patch.crates-io]
+img_hash = { git = "https://github.com/CryZe/img_hash", branch = "image-0.23" }
