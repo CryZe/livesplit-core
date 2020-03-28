@@ -43,8 +43,11 @@ fn default() {
     check(&state, "luCCVRJIPLE=", "default");
 }
 
+// #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn actual_split_file() {
+    // TODO: What are we doing about this in regard to crater? These should
+    // likely be in the tests folder.
     let run = lss("tests/run_files/livesplit1.0.lss");
     let timer = Timer::new(run).unwrap();
     let mut layout = Layout::default_layout();
@@ -52,6 +55,7 @@ fn actual_split_file() {
     check(&layout.state(&timer), "jMDEKxBAPLE=", "actual_split_file");
 }
 
+// #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn wsplit() {
     let run = wsplit::parse(file("tests/run_files/wsplit"), false).unwrap();
@@ -61,6 +65,7 @@ fn wsplit() {
     check_dims(&layout.state(&timer), [250, 300], "j/jc3dn8t/c=", "wsplit");
 }
 
+// #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn all_components() {
     let mut layout = lsl("tests/layout_files/All.lsl");
@@ -79,6 +84,7 @@ fn all_components() {
     check_dims(&state, [150, 800], "SWPXSWFFa2s=", "all_components_thin");
 }
 
+// #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn score_split() {
     use crate::{component::timer, layout::ComponentState};
@@ -99,6 +105,7 @@ fn score_split() {
     check_dims(&state, [300, 400], "jODEIwLQJDc=", "score_split");
 }
 
+// #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn dark_layout() {
     let run = llanfair::parse(file("tests/run_files/llanfair")).unwrap();
@@ -108,6 +115,7 @@ fn dark_layout() {
     check(&layout.state(&timer), "D8IAQiBYxgM=", "dark_layout");
 }
 
+// #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn subsplits_layout() {
     let run = lss("tests/run_files/Celeste - Any% (1.2.1.5).lss");
@@ -174,6 +182,7 @@ fn single_line_title() {
     );
 }
 
+// #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn horizontal() {
     let run = lss("tests/run_files/Celeste - Any% (1.2.1.5).lss");
