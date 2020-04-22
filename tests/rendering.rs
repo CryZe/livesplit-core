@@ -1,29 +1,36 @@
+#![cfg(feature = "software-rendering")]
+
+mod layout_files;
+mod run_files;
+#[path = "../src/tests_helper.rs"]
+mod tests_helper;
+
 use {
-    super::render,
-    crate::{
-        component,
-        layout::{self, Component, Layout, LayoutDirection, LayoutState},
-        run::parser::{livesplit, llanfair, wsplit},
-        tests_helper, Run, Timer,
-    },
     image::Rgba,
     img_hash::{HasherConfig, ImageHash},
+    livesplit_core::{
+        component,
+        layout::{self, Component, Layout, LayoutDirection, LayoutState},
+        rendering::software::render,
+        run::parser::{livesplit, llanfair, wsplit},
+        Run, Segment, TimeSpan, Timer, TimingMethod,
+    },
     std::{
         fs::{self, File},
-        io::BufReader,
+        io::{BufReader, Cursor},
     },
 };
 
-fn file(path: &str) -> BufReader<File> {
-    BufReader::new(File::open(path).unwrap())
+fn file(data: &[u8]) -> Cursor<&[u8]> {
+    Cursor::new(data)
 }
 
-fn lss(path: &str) -> Run {
-    livesplit::parse(file(path), None).unwrap()
+fn lss(data: &[u8]) -> Run {
+    livesplit::parse(file(data), None).unwrap()
 }
 
-fn lsl(path: &str) -> Layout {
-    layout::parser::parse(file(path)).unwrap()
+fn lsl(data: &[u8]) -> Layout {
+    layout::parser::parse(file(data)).unwrap()
 }
 
 #[test]
@@ -43,33 +50,30 @@ fn default() {
     check(&state, "luCCVRJIPLE=", "default");
 }
 
-// #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn actual_split_file() {
     // TODO: What are we doing about this in regard to crater? These should
     // likely be in the tests folder.
-    let run = lss("tests/run_files/livesplit1.0.lss");
+    let run = lss(run_files::LIVESPLIT_1_0);
     let timer = Timer::new(run).unwrap();
     let mut layout = Layout::default_layout();
 
     check(&layout.state(&timer), "jMDEKxBAPLE=", "actual_split_file");
 }
 
-// #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn wsplit() {
-    let run = wsplit::parse(file("tests/run_files/wsplit"), false).unwrap();
+    let run = wsplit::parse(file(run_files::WSPLIT), false).unwrap();
     let timer = Timer::new(run).unwrap();
-    let mut layout = lsl("tests/layout_files/WSplit.lsl");
+    let mut layout = lsl(layout_files::WSPLIT);
 
     check_dims(&layout.state(&timer), [250, 300], "j/jc3dn8t/c=", "wsplit");
 }
 
-// #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn all_components() {
-    let mut layout = lsl("tests/layout_files/All.lsl");
-    let run = lss("tests/run_files/livesplit1.6_gametime.lss");
+    let mut layout = lsl(layout_files::ALL);
+    let run = lss(run_files::LIVESPLIT_1_6_GAMETIME);
     let mut timer = Timer::new(run).unwrap();
     tests_helper::start_run(&mut timer);
     tests_helper::make_progress_run_with_splits_opt(
@@ -84,12 +88,11 @@ fn all_components() {
     check_dims(&state, [150, 800], "SWPXSWFFa2s=", "all_components_thin");
 }
 
-// #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn score_split() {
     use crate::{component::timer, layout::ComponentState};
 
-    let run = lss("tests/run_files/livesplit1.0.lss");
+    let run = lss(run_files::LIVESPLIT_1_0);
     let timer = Timer::new(run).unwrap();
     let mut layout = Layout::default_layout();
 
@@ -105,22 +108,20 @@ fn score_split() {
     check_dims(&state, [300, 400], "jODEIwLQJDc=", "score_split");
 }
 
-// #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn dark_layout() {
-    let run = llanfair::parse(file("tests/run_files/llanfair")).unwrap();
+    let run = llanfair::parse(file(run_files::LLANFAIR)).unwrap();
     let timer = Timer::new(run).unwrap();
-    let mut layout = lsl("tests/layout_files/dark.lsl");
+    let mut layout = lsl(layout_files::DARK);
 
     check(&layout.state(&timer), "D8IAQiBYxgM=", "dark_layout");
 }
 
-// #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn subsplits_layout() {
-    let run = lss("tests/run_files/Celeste - Any% (1.2.1.5).lss");
+    let run = lss(run_files::CELESTE);
     let mut timer = Timer::new(run).unwrap();
-    let mut layout = lsl("tests/layout_files/subsplits.lsl");
+    let mut layout = lsl(layout_files::SUBSPLITS);
 
     tests_helper::start_run(&mut timer);
     tests_helper::make_progress_run_with_splits_opt(
@@ -182,10 +183,9 @@ fn single_line_title() {
     );
 }
 
-// #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn horizontal() {
-    let run = lss("tests/run_files/Celeste - Any% (1.2.1.5).lss");
+    let run = lss(run_files::CELESTE);
     let mut timer = Timer::new(run).unwrap();
     let mut layout = Layout::default_layout();
     layout.general_settings_mut().direction = LayoutDirection::Horizontal;
