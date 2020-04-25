@@ -404,6 +404,14 @@ pub unsafe extern "C" fn RunEditor_parse_and_generate_goal_comparison(
     this.parse_and_generate_goal_comparison(str(time)).is_ok()
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn RunEditor_generate_old_attempt_comparison(
+    this: &mut RunEditor,
+    attempt_id: i32,
+) {
+    this.generate_old_attempt_comparison(attempt_id)
+}
+
 /// Clears out the Attempt History and the Segment Histories of all the
 /// segments.
 #[no_mangle]

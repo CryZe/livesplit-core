@@ -23,6 +23,38 @@ pub const SHORT_NAME: &str = "Latest";
 /// The name of this comparison.
 pub const NAME: &str = "Latest Run";
 
+pub fn generate_for_specific_attempt(
+    segments: &mut [Segment],
+    method: TimingMethod,
+    attempt_id: i32,
+    comparison_name: &str,
+) {
+    let mut remaining_segments = segments.iter_mut();
+
+    let mut total_time = TimeSpan::zero();
+    for segment in remaining_segments.by_ref() {
+        let segment_time = segment.segment_history().get(attempt_id).map(|t| t[method]);
+
+        let split_time = match segment_time {
+            Some(Some(segment_time)) => {
+                total_time += segment_time;
+                Some(total_time)
+            }
+            Some(None) => None,
+            None => {
+                segment.comparison_mut(comparison_name)[method] = None;
+                break;
+            }
+        };
+
+        segment.comparison_mut(comparison_name)[method] = split_time;
+    }
+
+    for segment in remaining_segments {
+        segment.comparison_mut(comparison_name)[method] = None;
+    }
+}
+
 fn generate(segments: &mut [Segment], method: TimingMethod) {
     let mut attempt_id = None;
     for segment in segments.iter_mut().rev() {

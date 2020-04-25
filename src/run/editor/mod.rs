@@ -82,21 +82,21 @@ impl Editor {
     /// Run Editor fails when a Run with no segments is provided.
     pub fn new(mut run: Run) -> Result<Self, OpenError> {
         run.fix_splits();
-        let len = run.len();
-        if len == 0 {
-            return Err(OpenError::EmptyRun);
-        }
 
-        let personal_best_time = run.segments().last().unwrap().personal_best_split_time();
+        let personal_best_time = run
+            .segments()
+            .last()
+            .ok_or(OpenError::EmptyRun)?
+            .personal_best_split_time();
 
         let mut editor = Self {
+            segment_icon_ids: Vec::with_capacity(run.len()),
+            segment_times: Vec::with_capacity(run.len()),
             run,
             selected_method: TimingMethod::RealTime,
             selected_segments: vec![0],
             previous_personal_best_time: personal_best_time,
             game_icon_id: CachedImageId::default(),
-            segment_icon_ids: Vec::with_capacity(len),
-            segment_times: Vec::with_capacity(len),
         };
 
         editor.update_segment_list();
@@ -850,6 +850,35 @@ impl Editor {
 
         self.raise_run_edited();
         Ok(())
+    }
+
+    pub fn generate_old_attempt_comparison(&mut self, attempt_id: i32) {
+        let comparison_name = format!("Attempt {}", attempt_id);
+        if !self
+            .run
+            .custom_comparisons()
+            .iter()
+            .any(|c| *c == comparison_name)
+        {
+            self.run
+                .custom_comparisons_mut()
+                .push(comparison_name.clone());
+        }
+
+        comparison::latest_run::generate_for_specific_attempt(
+            &mut self.run.segments_mut(),
+            TimingMethod::RealTime,
+            attempt_id,
+            &comparison_name,
+        );
+        comparison::latest_run::generate_for_specific_attempt(
+            &mut self.run.segments_mut(),
+            TimingMethod::GameTime,
+            attempt_id,
+            &comparison_name,
+        );
+
+        self.raise_run_edited();
     }
 
     /// Generates a custom goal comparison based on the goal time provided. The
