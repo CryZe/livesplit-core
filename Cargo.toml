@@ -31,7 +31,8 @@ exclude = ["crates/no-std-test"]
 # core
 base64 = { version = "0.12.0", default-features = false, features = ["alloc"] }
 cfg-if = "0.1.10"
-chrono = { version = "0.4.10", default-features = false, features = ["serde", "alloc"] }
+# chrono = { version = "0.4.10", default-features = false, features = ["serde", "alloc"] }
+time = { version = "0.2.16", default-features = false, features = ["serde"] }
 derive_more = { version = "0.99.1", default-features = false, features = ["not", "add", "from", "deref"] }
 hashbrown = "0.8.0"
 libm = "0.2.1"
@@ -83,12 +84,12 @@ tokio = { version = "0.2", features = ["macros"] }
 [features]
 default = ["image-shrinking", "std"]
 doesnt-have-atomics = []
-std = ["byteorder", "chrono/std", "chrono/clock", "euc/std", "image", "indexmap", "livesplit-hotkey/std", "palette/std", "parking_lot", "quick-xml", "serde_json", "serde/std", "snafu/std", "utf-8", "vek/std"]
+std = ["byteorder", "time/std", "euc/std", "image", "indexmap", "livesplit-hotkey/std", "palette/std", "parking_lot", "quick-xml", "serde_json", "serde/std", "snafu/std", "utf-8", "vek/std"]
 more-image-formats = ["image/webp", "image/pnm", "image/ico", "image/jpeg", "image/tiff", "image/tga", "image/bmp", "image/hdr"]
 image-shrinking = ["std", "bytemuck", "more-image-formats"]
 rendering = ["std", "more-image-formats", "euclid", "lyon", "rusttype"]
 software-rendering = ["rendering", "euc", "vek", "derive_more/mul"]
-wasm-web = ["std", "web-sys", "chrono/wasmbind", "livesplit-hotkey/wasm-web"]
+wasm-web = ["std", "web-sys", "livesplit-hotkey/wasm-web"]
 networking = ["std", "splits-io-api"]
 
 # FIXME: Some targets don't have atomics, but we can't test for this properly

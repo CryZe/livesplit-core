@@ -14,8 +14,11 @@ pub struct Time {
 impl Time {
     /// Creates a new Time with empty Real Time and Game Time.
     #[inline]
-    pub fn new() -> Self {
-        Time::default()
+    pub const fn new() -> Self {
+        Self {
+            real_time: None,
+            game_time: None,
+        }
     }
 
     /// Creates a new Time where Real Time and Game Time are zero. Keep in mind
@@ -23,7 +26,7 @@ impl Time {
     /// by `Time::new()`.
     #[inline]
     pub fn zero() -> Self {
-        Time {
+        Self {
             real_time: Some(TimeSpan::zero()),
             game_time: Some(TimeSpan::zero()),
         }
@@ -32,15 +35,15 @@ impl Time {
     /// Creates a new Time based on the current one where the Real Time is
     /// replaced by the given Time Span.
     #[inline]
-    pub fn with_real_time(self, real_time: Option<TimeSpan>) -> Self {
-        Time { real_time, ..self }
+    pub const fn with_real_time(self, real_time: Option<TimeSpan>) -> Self {
+        Self { real_time, ..self }
     }
 
     /// Creates a new Time based on the current one where the Game Time is
     /// replaced by the given Time Span.
     #[inline]
-    pub fn with_game_time(self, game_time: Option<TimeSpan>) -> Self {
-        Time { game_time, ..self }
+    pub const fn with_game_time(self, game_time: Option<TimeSpan>) -> Self {
+        Self { game_time, ..self }
     }
 
     /// Creates a new Time based on the current one where the specified timing
@@ -61,7 +64,7 @@ impl Time {
     where
         F: FnMut(TimeSpan, TimeSpan) -> TimeSpan,
     {
-        Time {
+        Self {
             real_time: catch! { f(a.real_time?, b.real_time?) },
             game_time: catch! { f(a.game_time?, b.game_time?) },
         }

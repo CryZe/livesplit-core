@@ -1,7 +1,6 @@
 use crate::timing;
 use alloc::borrow::Cow;
 use alloc::string;
-use chrono::ParseError as ChronoError;
 use core::num::{ParseFloatError, ParseIntError};
 use core::ops::Deref;
 use core::str;
@@ -40,7 +39,7 @@ pub enum Error {
     /// Failed to parse a time.
     Time { source: timing::ParseError },
     /// Failed to parse a date.
-    Date { source: ChronoError },
+    Date { source: time::ParseError },
 }
 
 /// The Result type for Parsers that parse XML-based splits files.

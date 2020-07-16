@@ -8,7 +8,7 @@
 
 use crate::analysis::sum_of_segments::{best, track_branch, Prediction};
 use crate::platform::prelude::*;
-use crate::platform::Local;
+use crate::platform::to_local;
 use crate::timing::formatter::{Short, TimeFormatter};
 use crate::{Attempt, Run, Segment, TimeSpan, TimingMethod};
 use core::fmt;
@@ -98,11 +98,7 @@ impl fmt::Display for PotentialCleanUp<'_> {
         }
 
         if let Some(ended) = self.attempt.ended() {
-            write!(
-                f,
-                " in a run on {}",
-                ended.time.with_timezone(&Local).format("%F")
-            )?;
+            write!(f, " in a run on {}", to_local(ended.time).lazy_format("%F"))?;
         }
 
         write!(

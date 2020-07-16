@@ -8,7 +8,7 @@ use snafu::ResultExt;
 
 /// A Time Span represents a certain span of time.
 #[derive(From, Add, Sub, Neg, Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub struct TimeSpan(Duration);
+pub struct TimeSpan(pub(super) Duration);
 
 impl TimeSpan {
     /// Creates a new Time Span of zero length.
@@ -41,13 +41,14 @@ impl TimeSpan {
     /// Returns the total amount of seconds (including decimals) this Time Span
     /// represents.
     pub fn total_seconds(&self) -> f64 {
-        self.0.num_microseconds().unwrap() as f64 / 1_000_000.0
+        self.0.as_seconds_f64()
     }
 
     /// Returns the total amount of milliseconds (including decimals) this Time
     /// Span represents.
     pub fn total_milliseconds(&self) -> f64 {
-        self.0.num_microseconds().unwrap() as f64 / 1_000.0
+        // TODO: is this method even necessary?
+        self.total_seconds() * 1000.0
     }
 
     /// Parses an optional Time Span from a given textual representation of the
@@ -107,7 +108,7 @@ impl Default for TimeSpan {
 
 impl From<core::time::Duration> for TimeSpan {
     fn from(duration: core::time::Duration) -> Self {
-        TimeSpan(Duration::from_std(duration).unwrap())
+        TimeSpan(core::convert::TryFrom::try_from(duration).unwrap())
     }
 }
 

@@ -6,14 +6,13 @@ use crate::xml_util::{
     parse_children, reencode_children, text, text_as_bytes_err, text_err, text_parsed,
 };
 use crate::{AtomicDateTime, Run, RunMetadata, Segment, Time, TimeSpan};
-use chrono::{DateTime, TimeZone, Utc};
 use core::str;
 use quick_xml::Reader;
 use std::io::BufRead;
 use std::path::PathBuf;
+use time::{OffsetDateTime, PrimitiveDateTime};
 
 use crate::xml_util::Error as XmlError;
-use chrono::ParseError as ChronoError;
 
 /// The Error type for splits files that couldn't be parsed by the LiveSplit
 /// Parser.
@@ -52,7 +51,7 @@ pub enum Error {
     /// Failed to parse a date.
     ParseDate {
         /// The underlying error.
-        source: ChronoError,
+        source: time::ParseError,
     },
     /// Parsed comparison has an invalid name.
     InvalidComparisonName {
@@ -86,9 +85,8 @@ fn parse_version<S: AsRef<str>>(version: S) -> Result<Version> {
     Ok(Version(v[0], v[1], v[2], v[3]))
 }
 
-fn parse_date_time<S: AsRef<str>>(text: S) -> Result<DateTime<Utc>> {
-    Utc.datetime_from_str(text.as_ref(), "%m/%d/%Y %T")
-        .map_err(Into::into)
+fn parse_date_time<S: AsRef<str>>(text: S) -> Result<OffsetDateTime> {
+    Ok(PrimitiveDateTime::parse(text, "%m/%d/%Y %T")?.assume_utc())
 }
 
 fn image<R, F>(

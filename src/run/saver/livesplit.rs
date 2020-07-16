@@ -24,11 +24,11 @@
 //! livesplit::save_run(&run, writer).expect("Couldn't save the splits file");
 //! ```
 
+use crate::platform::DateTime;
 use crate::timing::formatter::{Complete, TimeFormatter};
 use crate::{settings::Image, Run, Time, TimeSpan, Timer, TimerPhase};
 use alloc::borrow::Cow;
 use byteorder::{WriteBytesExt, LE};
-use chrono::{DateTime, Utc};
 use core::fmt::Display;
 use core::mem::replace;
 use core::result::Result as StdResult;
@@ -171,8 +171,8 @@ fn image<W: Write>(
     Ok(())
 }
 
-fn fmt_date(date: DateTime<Utc>, buf: &mut Vec<u8>) -> &[u8] {
-    fmt_buf(date.format("%m/%d/%Y %T"), buf)
+fn fmt_date(date: DateTime, buf: &mut Vec<u8>) -> &[u8] {
+    fmt_buf(date.lazy_format("%m/%d/%Y %T"), buf)
 }
 
 fn fmt_buf<D: Display>(value: D, buf: &mut Vec<u8>) -> &[u8] {
