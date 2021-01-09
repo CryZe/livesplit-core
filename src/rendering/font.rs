@@ -115,6 +115,10 @@ impl<'fd> Font<'fd> {
             .is_some()
     }
 
+    pub fn ascender(&self) -> f32 {
+        self.face.ascender() as f32
+    }
+
     pub fn descender(&self) -> f32 {
         self.face.descender() as f32
     }
@@ -381,7 +385,8 @@ pub fn render<B: Backend>(
     layout: impl IntoIterator<Item = PositionedGlyph>,
     [top, bottom]: [Color; 2],
     font: &ScaledFont<'_>,
-    glyph_cache: &mut GlyphCache<B::Mesh>,
+    rectangle: &B::Mesh,
+    glyph_cache: &mut GlyphCache<B::Texture>,
     transform: &Transform,
     backend: &mut B,
 ) {
@@ -389,13 +394,18 @@ pub fn render<B: Backend>(
     let bottom = decode_color(&bottom);
     let colors = [top, top, bottom, bottom];
 
+    let height = font.scale * font.font.height();
+    let ascender = font.scale * font.font.ascender();
+
     for glyph in layout {
-        let glyph_mesh = glyph_cache.lookup_or_insert(font.font, glyph.id, backend);
+        let texture = glyph_cache.lookup_or_insert(font.font, glyph.id, backend);
 
-        let transform = transform
-            .pre_translate([glyph.x, glyph.y].into())
-            .pre_scale(font.scale, font.scale);
+        if let Some(texture) = texture {
+            let transform = transform
+                .pre_translate([glyph.x + font.scale * texture.x_offset, glyph.y - ascender].into())
+                .pre_scale(texture.width as f32 * font.scale, height);
 
-        backend.render_mesh(glyph_mesh, transform, colors, None);
+            backend.render_mesh(rectangle, transform, colors, Some(&texture.texture));
+        }
     }
 }

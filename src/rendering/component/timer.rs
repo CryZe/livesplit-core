@@ -13,12 +13,12 @@ pub(in crate::rendering) fn render(
         &component.fraction,
         [width - PADDING, 0.85 * height],
         DEFAULT_TEXT_SIZE * height,
-        [component.bottom_color, component.top_color],
+        [component.top_color, component.bottom_color],
     );
     context.render_timer(
         &component.time,
         [x, 0.85 * height],
         1.2 * height,
-        [component.bottom_color, component.top_color],
+        [component.top_color, component.bottom_color],
     )
 }

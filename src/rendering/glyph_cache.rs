@@ -1,57 +1,61 @@
-use super::{
-    font::Font,
-    mesh::{fill_builder, Mesh},
-    Backend,
-};
+use super::{font::Font, Backend};
 use hashbrown::HashMap;
-use lyon::{
-    path::{self, math::point, Path},
-    tessellation::{FillOptions, FillTessellator},
-};
+use tiny_skia::{Canvas, Color, FillRule, Paint, Pixmap, Shader, Transform};
 use ttf_parser::OutlineBuilder;
 
-struct PathBuilder(path::Builder);
+struct ImageBuilder(tiny_skia::PathBuilder);
 
-impl OutlineBuilder for PathBuilder {
+impl OutlineBuilder for ImageBuilder {
     fn move_to(&mut self, x: f32, y: f32) {
-        self.0.move_to(point(x, -y));
+        self.0.move_to(x, -y)
     }
+
     fn line_to(&mut self, x: f32, y: f32) {
-        self.0.line_to(point(x, -y));
+        self.0.line_to(x, -y)
     }
+
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        self.0.quadratic_bezier_to(point(x1, -y1), point(x, -y));
+        self.0.quad_to(x1, -y1, x, -y)
     }
+
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        self.0
-            .cubic_bezier_to(point(x1, -y1), point(x2, -y2), point(x, -y));
+        self.0.cubic_to(x1, -y1, x2, -y2, x, -y)
     }
+
     fn close(&mut self) {
-        self.0.close();
+        self.0.close()
     }
 }
 
-pub struct GlyphCache<M> {
-    glyphs: HashMap<u32, M>,
+pub struct GlyphCache<T> {
+    textures: HashMap<u32, Option<GlyphTexture<T>>>,
 }
 
-impl<M> Default for GlyphCache<M> {
+pub struct GlyphTexture<T> {
+    pub texture: T,
+    pub width: f32,
+    pub x_offset: f32,
+}
+
+impl<T> Default for GlyphCache<T> {
     fn default() -> Self {
         Self {
-            glyphs: Default::default(),
+            textures: Default::default(),
         }
     }
 }
 
-impl<M> GlyphCache<M> {
+impl<T> GlyphCache<T> {
     pub fn new() -> Self {
         Default::default()
     }
 
     #[cfg(feature = "font-loading")]
-    pub fn clear(&mut self, backend: &mut impl Backend<Mesh = M>) {
-        for (_, mesh) in self.glyphs.drain() {
-            backend.free_mesh(mesh);
+    pub fn clear(&mut self, backend: &mut impl Backend<Texture = T>) {
+        for (_, texture) in self.textures.drain() {
+            if let Some(texture) = texture {
+                backend.free_texture(texture.texture);
+            }
         }
     }
 
@@ -59,32 +63,54 @@ impl<M> GlyphCache<M> {
         &mut self,
         font: &Font<'_>,
         glyph: u32,
-        backend: &mut impl Backend<Mesh = M>,
-    ) -> &M {
-        self.glyphs.entry(glyph).or_insert_with(|| {
-            let mut builder = PathBuilder(Path::builder());
-            let mut glyph_mesh = Mesh::new();
-
-            if font.outline_glyph(glyph, &mut builder) {
-                let path = builder.0.build();
-                let mut tessellator = FillTessellator::new();
-                tessellator
-                    .tessellate_path(
-                        &path,
-                        &FillOptions::tolerance(0.005),
-                        &mut fill_builder(&mut glyph_mesh),
-                    )
-                    .unwrap();
-
-                let scale = -font.height().recip();
-                let descender = scale * font.descender();
-
-                for vertex in glyph_mesh.vertices_mut() {
-                    vertex.v = descender + scale * vertex.y;
+        backend: &mut impl Backend<Texture = T>,
+    ) -> Option<&GlyphTexture<T>> {
+        self.textures
+            .entry(glyph)
+            .or_insert_with(|| {
+                let mut builder = ImageBuilder(tiny_skia::PathBuilder::new());
+                if !font.outline_glyph(glyph, &mut builder) {
+                    return None;
                 }
-            }
+                let path = builder.0.finish()?;
+                let bounds = path.bounds();
+                let x = bounds.x().floor() as i32;
+                // let y = bounds.y().floor() as i32;
+                let end_x = (bounds.x() + bounds.width()).ceil() as i32;
+                // let end_y = (bounds.y() + bounds.height()).ceil() as i32;
+                let width = (end_x - x) as u32;
+                // let height = (end_y - y) as u32;
 
-            backend.create_mesh(&glyph_mesh)
-        })
+                // TODO: Shouldn't really need a cast
+                let height = font.height() as u32;
+
+                let mut image = Pixmap::new(width, height)?;
+
+                // FIXME: slice::fill once its stable
+                for p in bytemuck::cast_slice_mut(image.as_mut().data_mut()) {
+                    *p = [255u8, 255, 255, 0];
+                }
+
+                let mut canvas = Canvas::from(image.as_mut());
+
+                canvas.apply_transform(&Transform::from_translate(-bounds.x(), font.ascender())?);
+
+                canvas.fill_path(
+                    &path,
+                    &Paint {
+                        shader: Shader::SolidColor(Color::WHITE),
+                        anti_alias: true,
+                        ..Default::default()
+                    },
+                    FillRule::Winding,
+                );
+
+                Some(GlyphTexture {
+                    texture: backend.create_texture(width, height, image.data()),
+                    width: width as f32,
+                    x_offset: x as f32,
+                })
+            })
+            .as_ref()
     }
 }

@@ -185,15 +185,15 @@ pub struct Renderer<M, T> {
     #[cfg(feature = "font-loading")]
     timer_font_setting: Option<crate::settings::Font>,
     timer_font: Font<'static>,
-    timer_glyph_cache: GlyphCache<M>,
+    timer_glyph_cache: GlyphCache<T>,
     #[cfg(feature = "font-loading")]
     times_font_setting: Option<crate::settings::Font>,
     times_font: Font<'static>,
-    times_glyph_cache: GlyphCache<M>,
+    times_glyph_cache: GlyphCache<T>,
     #[cfg(feature = "font-loading")]
     text_font_setting: Option<crate::settings::Font>,
     text_font: Font<'static>,
-    text_glyph_cache: GlyphCache<M>,
+    text_glyph_cache: GlyphCache<T>,
     rectangle: Option<M>,
     cached_size: Option<CachedSize>,
     icons: IconCache<T>,
@@ -532,11 +532,11 @@ struct RenderContext<'b, B: Backend> {
     backend: &'b mut B,
     rectangle: &'b mut Option<B::Mesh>,
     timer_font: &'b Font<'static>,
-    timer_glyph_cache: &'b mut GlyphCache<B::Mesh>,
+    timer_glyph_cache: &'b mut GlyphCache<B::Texture>,
     text_font: &'b Font<'static>,
-    text_glyph_cache: &'b mut GlyphCache<B::Mesh>,
+    text_glyph_cache: &'b mut GlyphCache<B::Texture>,
     times_font: &'b Font<'static>,
-    times_glyph_cache: &'b mut GlyphCache<B::Mesh>,
+    times_glyph_cache: &'b mut GlyphCache<B::Texture>,
     text_buffer: &'b mut Option<UnicodeBuffer>,
 }
 
@@ -693,10 +693,16 @@ impl<B: Backend> RenderContext<'_, B> {
         let font = self.text_font.scale(scale);
         let glyphs = font.shape(buffer);
 
+        let rectangle = self.rectangle.get_or_insert_with({
+            let backend = &mut self.backend;
+            move || backend.create_mesh(&mesh::rectangle())
+        });
+
         font::render(
             glyphs.left_aligned(&mut cursor, max_x),
             colors,
             &font,
+            rectangle,
             self.text_glyph_cache,
             &self.transform,
             self.backend,
@@ -725,10 +731,16 @@ impl<B: Backend> RenderContext<'_, B> {
         let font = self.text_font.scale(scale);
         let glyphs = font.shape(buffer);
 
+        let rectangle = self.rectangle.get_or_insert_with({
+            let backend = &mut self.backend;
+            move || backend.create_mesh(&mesh::rectangle())
+        });
+
         font::render(
             glyphs.centered(&mut cursor, min_x, max_x),
             [color; 2],
             &font,
+            rectangle,
             self.text_glyph_cache,
             &self.transform,
             self.backend,
@@ -753,10 +765,16 @@ impl<B: Backend> RenderContext<'_, B> {
         let font = self.text_font.scale(scale);
         let glyphs = font.shape(buffer);
 
+        let rectangle = self.rectangle.get_or_insert_with({
+            let backend = &mut self.backend;
+            move || backend.create_mesh(&mesh::rectangle())
+        });
+
         font::render(
             glyphs.right_aligned(&mut cursor),
             colors,
             &font,
+            rectangle,
             self.text_glyph_cache,
             &self.transform,
             self.backend,
@@ -794,10 +812,16 @@ impl<B: Backend> RenderContext<'_, B> {
         let font = self.times_font.scale(scale);
         let glyphs = font.shape_tabular_numbers(buffer);
 
+        let rectangle = self.rectangle.get_or_insert_with({
+            let backend = &mut self.backend;
+            move || backend.create_mesh(&mesh::rectangle())
+        });
+
         font::render(
             glyphs.tabular_numbers(&mut cursor),
             colors,
             &font,
+            rectangle,
             self.times_glyph_cache,
             &self.transform,
             self.backend,
@@ -818,10 +842,16 @@ impl<B: Backend> RenderContext<'_, B> {
         let font = self.timer_font.scale(scale);
         let glyphs = font.shape_tabular_numbers(buffer);
 
+        let rectangle = self.rectangle.get_or_insert_with({
+            let backend = &mut self.backend;
+            move || backend.create_mesh(&mesh::rectangle())
+        });
+
         font::render(
             glyphs.tabular_numbers(&mut cursor),
             colors,
             &font,
+            rectangle,
             self.timer_glyph_cache,
             &self.transform,
             self.backend,
