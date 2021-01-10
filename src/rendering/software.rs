@@ -369,6 +369,11 @@ impl SoftwareRenderer {
     pub fn render(&mut self, state: &LayoutState, [width, height]: [u32; 2]) {
         if width != self.pixmap.width() || height != self.pixmap.height() {
             self.pixmap = Pixmap::new(width, height).unwrap();
+        } else {
+            // FIXME: .fill() once it's stable.
+            for b in self.pixmap.data_mut() {
+                *b = 0;
+            }
         }
 
         let mut backend = SoftwareBackend {
