@@ -2,8 +2,8 @@ use crate::{
     component::detailed_timer::State,
     layout::LayoutState,
     rendering::{
-        component::timer, icon::Icon, vertical_padding, Backend, RenderContext, BOTH_PADDINGS,
-        PADDING,
+        component::timer, icon::Icon, solid, vertical_padding, Backend, RenderContext,
+        BOTH_PADDINGS, PADDING,
     },
 };
 
@@ -15,6 +15,8 @@ pub(in crate::rendering) fn render<B: Backend>(
     detailed_timer_icon: &mut Option<Icon<B::Texture>>,
 ) {
     context.render_rectangle([0.0, 0.0], [width, height], &component.background);
+
+    let text_color = solid(&layout_state.text_color);
 
     let vertical_padding = vertical_padding(height);
     let icon_size = height - 2.0 * vertical_padding;
@@ -43,7 +45,7 @@ pub(in crate::rendering) fn render<B: Backend>(
             &segment_name,
             [left_side, 0.6 * top_height],
             0.5 * top_height,
-            [layout_state.text_color; 2],
+            text_color,
             timer_end,
         );
     }
@@ -66,7 +68,7 @@ pub(in crate::rendering) fn render<B: Backend>(
                 &comparison.name,
                 [left_side, comparison2_y],
                 comparison_text_scale,
-                [layout_state.text_color; 2],
+                text_color,
                 segment_timer_end,
             )
             .max(name_end);
@@ -86,7 +88,7 @@ pub(in crate::rendering) fn render<B: Backend>(
                 &comparison.name,
                 [left_side, comparison1_y],
                 comparison_text_scale,
-                [layout_state.text_color; 2],
+                text_color,
                 segment_timer_end,
             )
             .max(name_end);
@@ -103,7 +105,7 @@ pub(in crate::rendering) fn render<B: Backend>(
             &comparison.time,
             [time_x, comparison2_y],
             comparison_text_scale,
-            [layout_state.text_color; 2],
+            text_color,
         );
     }
     if let Some(comparison) = &component.comparison1 {
@@ -111,7 +113,7 @@ pub(in crate::rendering) fn render<B: Backend>(
             &comparison.time,
             [time_x, comparison1_y],
             comparison_text_scale,
-            [layout_state.text_color; 2],
+            text_color,
         );
     }
 }

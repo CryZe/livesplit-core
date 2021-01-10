@@ -1,4 +1,4 @@
-use super::{decode_color, glyph_cache::GlyphCache, Backend, Pos, Transform};
+use super::{decode_color, glyph_cache::GlyphCache, Backend, Pos, Shader, Transform};
 use crate::settings::{Color, FontStretch, FontStyle, FontWeight};
 #[cfg(feature = "font-loading")]
 use font_kit::properties::{Stretch, Style, Weight};
@@ -379,23 +379,19 @@ impl<'f> Glyphs<'f> {
 
 pub fn render<B: Backend>(
     layout: impl IntoIterator<Item = PositionedGlyph>,
-    [top, bottom]: [Color; 2],
+    shader: Shader,
     font: &ScaledFont<'_>,
-    glyph_cache: &mut GlyphCache<B::Mesh>,
+    glyph_cache: &mut GlyphCache<B::Path>,
     transform: &Transform,
     backend: &mut B,
 ) {
-    let top = decode_color(&top);
-    let bottom = decode_color(&bottom);
-    let colors = [top, top, bottom, bottom];
-
     for glyph in layout {
-        let glyph_mesh = glyph_cache.lookup_or_insert(font.font, glyph.id, backend);
+        let glyph_path = glyph_cache.lookup_or_insert(font.font, glyph.id, backend);
 
         let transform = transform
             .pre_translate([glyph.x, glyph.y].into())
             .pre_scale(font.scale, font.scale);
 
-        backend.render_mesh(glyph_mesh, transform, colors, None);
+        backend.render_path(glyph_path, None, transform, shader, None);
     }
 }

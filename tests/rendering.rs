@@ -10,7 +10,7 @@ use img_hash::{HasherConfig, ImageHash};
 use livesplit_core::{
     component,
     layout::{self, Component, Layout, LayoutDirection, LayoutState},
-    rendering::software::render,
+    rendering::software::SoftwareRenderer,
     run::parser::{livesplit, llanfair, wsplit},
     Run, Segment, TimeSpan, Timer, TimingMethod,
 };
@@ -243,8 +243,11 @@ fn check(state: &LayoutState, expected_hash_data: &str, name: &str) {
 }
 
 #[track_caller]
-fn check_dims(state: &LayoutState, dims: [usize; 2], expected_hash_data: &str, name: &str) {
-    let image = render(state, dims);
+fn check_dims(state: &LayoutState, dims: [u32; 2], expected_hash_data: &str, name: &str) {
+    let mut renderer = SoftwareRenderer::new();
+    renderer.render(state, dims);
+    let image = renderer.into_image();
+
     let hasher = HasherConfig::with_bytes_type::<[u8; 8]>().to_hasher();
 
     let calculated_hash = hasher.hash_image(&image);

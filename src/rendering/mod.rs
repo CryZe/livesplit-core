@@ -120,18 +120,50 @@ fn vertical_padding(height: f32) -> f32 {
     (VERTICAL_PADDING * height).min(PADDING)
 }
 
+pub trait PathBuilder {
+    type Path;
+
+    /// Appends a MoveTo segment.
+    ///
+    /// Start of a contour.
+    fn move_to(&mut self, x: f32, y: f32);
+
+    /// Appends a LineTo segment.
+    fn line_to(&mut self, x: f32, y: f32);
+
+    /// Appends a QuadTo segment.
+    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32);
+
+    /// Appends a CurveTo segment.
+    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32);
+
+    fn push_circle(&mut self, x: f32, y: f32, r: f32);
+
+    /// Appends a ClosePath segment.
+    ///
+    /// End of a contour.
+    fn close(&mut self);
+
+    fn finish(self) -> Self::Path;
+}
+
+#[derive(Copy, Clone)]
+pub enum Shader {
+    SolidColor(Rgba),
+    VerticalGradient(Rgba, Rgba),
+    HorizontalGradient(Rgba, Rgba),
+}
+
 /// The rendering backend for the Renderer is abstracted out into the Backend
 /// trait such that the rendering isn't tied to a specific rendering framework.
 pub trait Backend {
-    /// The type the backend uses for meshes.
-    type Mesh;
+    /// The type the backend uses for paths.
+    type PathBuilder: PathBuilder<Path = Self::Path>;
+    type Path;
     /// The type the backend uses for textures.
     type Texture;
 
-    /// Instructs the backend to create a mesh. The mesh consists out of a
-    /// vertex buffer and an index buffer that describes pairs of three indices
-    /// of the vertex buffer that form a triangle each.
-    fn create_mesh(&mut self, mesh: &Mesh) -> Self::Mesh;
+    fn build_path(&mut self) -> Self::PathBuilder;
 
     /// Instructs the backend to render out a mesh. The rendering uses no
     /// backface culling or depth buffering. The colors are supposed to be alpha
@@ -151,16 +183,17 @@ pub trait Backend {
     ///     (0, 1), // Bottom Left
     /// ]
     /// ```
-    fn render_mesh(
+    fn render_path(
         &mut self,
-        mesh: &Self::Mesh,
+        path: &Self::Path,
+        stroke: Option<f32>,
         transform: Transform,
-        colors: [Rgba; 4],
+        shader: Shader,
         texture: Option<&Self::Texture>,
     );
 
     /// Instructs the backend to free a mesh as it is not needed anymore.
-    fn free_mesh(&mut self, mesh: Self::Mesh);
+    fn free_path(&mut self, path: Self::Path);
 
     /// Instructs the backend to create a texture out of the texture data
     /// provided. The texture's resolution is provided as well. The data is an
@@ -181,20 +214,20 @@ enum CachedSize {
 }
 
 /// A renderer can be used to render out layout states with the backend chosen.
-pub struct Renderer<M, T> {
+pub struct Renderer<P, T> {
     #[cfg(feature = "font-loading")]
     timer_font_setting: Option<crate::settings::Font>,
     timer_font: Font<'static>,
-    timer_glyph_cache: GlyphCache<M>,
+    timer_glyph_cache: GlyphCache<P>,
     #[cfg(feature = "font-loading")]
     times_font_setting: Option<crate::settings::Font>,
     times_font: Font<'static>,
-    times_glyph_cache: GlyphCache<M>,
+    times_glyph_cache: GlyphCache<P>,
     #[cfg(feature = "font-loading")]
     text_font_setting: Option<crate::settings::Font>,
     text_font: Font<'static>,
-    text_glyph_cache: GlyphCache<M>,
-    rectangle: Option<M>,
+    text_glyph_cache: GlyphCache<P>,
+    rectangle: Option<P>,
     cached_size: Option<CachedSize>,
     icons: IconCache<T>,
     text_buffer: Option<UnicodeBuffer>,
@@ -206,13 +239,13 @@ struct IconCache<T> {
     detailed_timer_icon: Option<Icon<T>>,
 }
 
-impl<M, T> Default for Renderer<M, T> {
+impl<P, T> Default for Renderer<P, T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<M, T> Renderer<M, T> {
+impl<P, T> Renderer<P, T> {
     /// Creates a new renderer.
     pub fn new() -> Self {
         Self {
@@ -263,7 +296,7 @@ impl<M, T> Renderer<M, T> {
     /// Renders the layout state with the backend provided. A resolution needs
     /// to be provided as well so that the contents are rendered according to
     /// aspect ratio of the render target.
-    pub fn render<B: Backend<Mesh = M, Texture = T>>(
+    pub fn render<B: Backend<Path = P, Texture = T>>(
         &mut self,
         backend: &mut B,
         resolution: (f32, f32),
@@ -335,7 +368,7 @@ impl<M, T> Renderer<M, T> {
         }
     }
 
-    fn render_vertical<B: Backend<Mesh = M, Texture = T>>(
+    fn render_vertical<B: Backend<Path = P, Texture = T>>(
         &mut self,
         backend: &mut B,
         resolution: (f32, f32),
@@ -410,7 +443,7 @@ impl<M, T> Renderer<M, T> {
         }
     }
 
-    fn render_horizontal<B: Backend<Mesh = M, Texture = T>>(
+    fn render_horizontal<B: Backend<Path = P, Texture = T>>(
         &mut self,
         backend: &mut B,
         resolution: (f32, f32),
@@ -530,18 +563,18 @@ fn render_component<B: Backend>(
 struct RenderContext<'b, B: Backend> {
     transform: Transform,
     backend: &'b mut B,
-    rectangle: &'b mut Option<B::Mesh>,
+    rectangle: &'b mut Option<B::Path>,
     timer_font: &'b Font<'static>,
-    timer_glyph_cache: &'b mut GlyphCache<B::Mesh>,
+    timer_glyph_cache: &'b mut GlyphCache<B::Path>,
     text_font: &'b Font<'static>,
-    text_glyph_cache: &'b mut GlyphCache<B::Mesh>,
+    text_glyph_cache: &'b mut GlyphCache<B::Path>,
     times_font: &'b Font<'static>,
-    times_glyph_cache: &'b mut GlyphCache<B::Mesh>,
+    times_glyph_cache: &'b mut GlyphCache<B::Path>,
     text_buffer: &'b mut Option<UnicodeBuffer>,
 }
 
 impl<B: Backend> RenderContext<'_, B> {
-    fn backend_render_rectangle(&mut self, [x1, y1]: Pos, [x2, y2]: Pos, colors: [Rgba; 4]) {
+    fn backend_render_rectangle(&mut self, [x1, y1]: Pos, [x2, y2]: Pos, shader: Shader) {
         let transform = self
             .transform
             .pre_translate([x1, y1].into())
@@ -549,19 +582,38 @@ impl<B: Backend> RenderContext<'_, B> {
 
         let rectangle = self.rectangle.get_or_insert_with({
             let backend = &mut self.backend;
-            move || backend.create_mesh(&mesh::rectangle())
+            move || {
+                let mut builder = backend.build_path();
+                builder.move_to(0.0, 0.0);
+                builder.line_to(0.0, 1.0);
+                builder.line_to(1.0, 1.0);
+                builder.line_to(1.0, 0.0);
+                builder.close();
+                builder.finish()
+            }
         });
 
-        self.backend.render_mesh(rectangle, transform, colors, None);
-    }
-
-    fn create_mesh(&mut self, mesh: &Mesh) -> B::Mesh {
-        self.backend.create_mesh(mesh)
-    }
-
-    fn render_mesh(&mut self, mesh: &B::Mesh, color: Color) {
         self.backend
-            .render_mesh(mesh, self.transform, [decode_color(&color); 4], None)
+            .render_path(rectangle, None, transform, shader, None);
+    }
+
+    // fn create_path(&mut self, path: &Path) -> B::Path {
+    //     self.backend.create_path(path)
+    // }
+
+    fn render_path(&mut self, path: &B::Path, color: Color) {
+        self.backend
+            .render_path(path, None, self.transform, solid(&color), None)
+    }
+
+    fn render_stroke_path(&mut self, path: &B::Path, color: Color, stroke_width: f32) {
+        self.backend.render_path(
+            path,
+            Some(stroke_width),
+            self.transform,
+            solid(&color),
+            None,
+        )
     }
 
     fn create_icon(&mut self, image_data: &[u8]) -> Option<Icon<B::Texture>> {
@@ -580,8 +632,8 @@ impl<B: Backend> RenderContext<'_, B> {
         })
     }
 
-    fn free_mesh(&mut self, mesh: B::Mesh) {
-        self.backend.free_mesh(mesh)
+    fn free_path(&mut self, path: B::Path) {
+        self.backend.free_path(path)
     }
 
     fn scale(&mut self, factor: f32) {
@@ -628,13 +680,27 @@ impl<B: Backend> RenderContext<'_, B> {
             .pre_translate([x, y].into())
             .pre_scale(width, height);
 
+        // TODO: Deduplicate
         let rectangle = self.rectangle.get_or_insert_with({
             let backend = &mut self.backend;
-            move || backend.create_mesh(&mesh::rectangle())
+            move || {
+                let mut builder = backend.build_path();
+                builder.move_to(0.0, 0.0);
+                builder.line_to(0.0, 1.0);
+                builder.line_to(1.0, 1.0);
+                builder.line_to(1.0, 0.0);
+                builder.close();
+                builder.finish()
+            }
         });
 
-        self.backend
-            .render_mesh(rectangle, transform, [[1.0; 4]; 4], Some(&icon.texture));
+        self.backend.render_path(
+            rectangle,
+            None,
+            transform,
+            Shader::SolidColor([1.0; 4]),
+            Some(&icon.texture),
+        );
     }
 
     fn render_background(&mut self, background: &Gradient) {
@@ -655,7 +721,7 @@ impl<B: Backend> RenderContext<'_, B> {
             value,
             [width - PADDING, height + TEXT_ALIGN_BOTTOM],
             DEFAULT_TEXT_SIZE,
-            [value_color; 2],
+            solid(&value_color),
         );
         let end_x = if display_two_rows {
             width
@@ -671,7 +737,7 @@ impl<B: Backend> RenderContext<'_, B> {
             key,
             [PADDING, TEXT_ALIGN_TOP],
             DEFAULT_TEXT_SIZE,
-            [key_color; 2],
+            solid(&key_color),
             end_x - PADDING,
         );
     }
@@ -681,7 +747,7 @@ impl<B: Backend> RenderContext<'_, B> {
         text: &str,
         pos: Pos,
         scale: f32,
-        colors: [Color; 2],
+        shader: Shader,
         max_x: f32,
     ) -> f32 {
         let mut cursor = font::Cursor::new(pos);
@@ -695,7 +761,7 @@ impl<B: Backend> RenderContext<'_, B> {
 
         font::render(
             glyphs.left_aligned(&mut cursor, max_x),
-            colors,
+            shader,
             &font,
             self.text_glyph_cache,
             &self.transform,
@@ -714,7 +780,7 @@ impl<B: Backend> RenderContext<'_, B> {
         max_x: f32,
         pos: Pos,
         scale: f32,
-        color: Color,
+        shader: Shader,
     ) {
         let mut cursor = font::Cursor::new(pos);
 
@@ -727,7 +793,7 @@ impl<B: Backend> RenderContext<'_, B> {
 
         font::render(
             glyphs.centered(&mut cursor, min_x, max_x),
-            [color; 2],
+            shader,
             &font,
             self.text_glyph_cache,
             &self.transform,
@@ -737,13 +803,7 @@ impl<B: Backend> RenderContext<'_, B> {
         *self.text_buffer = Some(glyphs.into_buffer());
     }
 
-    fn render_text_right_align(
-        &mut self,
-        text: &str,
-        pos: Pos,
-        scale: f32,
-        colors: [Color; 2],
-    ) -> f32 {
+    fn render_text_right_align(&mut self, text: &str, pos: Pos, scale: f32, shader: Shader) -> f32 {
         let mut cursor = font::Cursor::new(pos);
 
         let mut buffer = self.text_buffer.take().unwrap_or_default();
@@ -755,7 +815,7 @@ impl<B: Backend> RenderContext<'_, B> {
 
         font::render(
             glyphs.right_aligned(&mut cursor),
-            colors,
+            shader,
             &font,
             self.text_glyph_cache,
             &self.transform,
@@ -775,16 +835,16 @@ impl<B: Backend> RenderContext<'_, B> {
         pos: Pos,
         scale: f32,
         centered: bool,
-        color: Color,
+        shader: Shader,
     ) {
         if centered {
-            self.render_text_centered(text, min_x, max_x, pos, scale, color);
+            self.render_text_centered(text, min_x, max_x, pos, scale, shader);
         } else {
-            self.render_text_ellipsis(text, pos, scale, [color; 2], max_x);
+            self.render_text_ellipsis(text, pos, scale, shader, max_x);
         }
     }
 
-    fn render_numbers(&mut self, text: &str, pos: Pos, scale: f32, colors: [Color; 2]) -> f32 {
+    fn render_numbers(&mut self, text: &str, pos: Pos, scale: f32, shader: Shader) -> f32 {
         let mut cursor = font::Cursor::new(pos);
 
         let mut buffer = self.text_buffer.take().unwrap_or_default();
@@ -796,7 +856,7 @@ impl<B: Backend> RenderContext<'_, B> {
 
         font::render(
             glyphs.tabular_numbers(&mut cursor),
-            colors,
+            shader,
             &font,
             self.times_glyph_cache,
             &self.transform,
@@ -808,7 +868,7 @@ impl<B: Backend> RenderContext<'_, B> {
         cursor.x
     }
 
-    fn render_timer(&mut self, text: &str, pos: Pos, scale: f32, colors: [Color; 2]) -> f32 {
+    fn render_timer(&mut self, text: &str, pos: Pos, scale: f32, shader: Shader) -> f32 {
         let mut cursor = font::Cursor::new(pos);
 
         let mut buffer = self.text_buffer.take().unwrap_or_default();
@@ -820,7 +880,7 @@ impl<B: Backend> RenderContext<'_, B> {
 
         font::render(
             glyphs.tabular_numbers(&mut cursor),
-            colors,
+            shader,
             &font,
             self.timer_glyph_cache,
             &self.transform,
@@ -901,22 +961,22 @@ impl<B: Backend> RenderContext<'_, B> {
     }
 }
 
-fn decode_gradient(gradient: &Gradient) -> Option<[[f32; 4]; 4]> {
+fn decode_gradient(gradient: &Gradient) -> Option<Shader> {
     Some(match gradient {
         Gradient::Transparent => return None,
         Gradient::Horizontal(left, right) => {
             let left = decode_color(left);
             let right = decode_color(right);
-            [left, right, right, left]
+            Shader::HorizontalGradient(left, right)
         }
         Gradient::Vertical(top, bottom) => {
             let top = decode_color(top);
             let bottom = decode_color(bottom);
-            [top, top, bottom, bottom]
+            Shader::VerticalGradient(top, bottom)
         }
         Gradient::Plain(plain) => {
             let plain = decode_color(plain);
-            [plain; 4]
+            Shader::SolidColor(plain)
         }
     })
 }
@@ -924,6 +984,10 @@ fn decode_gradient(gradient: &Gradient) -> Option<[[f32; 4]; 4]> {
 fn decode_color(color: &Color) -> [f32; 4] {
     let (r, g, b, a) = color.rgba.into();
     [r, g, b, a]
+}
+
+fn solid(color: &Color) -> Shader {
+    Shader::SolidColor(decode_color(color))
 }
 
 fn component_width(component: &ComponentState) -> f32 {
