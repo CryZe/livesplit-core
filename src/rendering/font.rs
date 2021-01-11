@@ -392,6 +392,6 @@ pub fn render<B: Backend>(
             .pre_translate([glyph.x, glyph.y].into())
             .pre_scale(font.scale, font.scale);
 
-        backend.render_path(glyph_path, None, transform, shader, None);
+        backend.render_fill_path(glyph_path, shader, transform);
     }
 }

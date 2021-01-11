@@ -12,7 +12,7 @@ pub(in crate::rendering) fn render<B: Backend>(
     [width, height]: [f32; 2],
     component: &State,
     layout_state: &LayoutState,
-    game_icon: &mut Option<Icon<B::Texture>>,
+    game_icon: &mut Option<Icon<B::Image>>,
 ) {
     context.render_rectangle([0.0, 0.0], [width, height], &component.background);
     let text_color = component.text_color.unwrap_or(layout_state.text_color);
@@ -20,7 +20,7 @@ pub(in crate::rendering) fn render<B: Backend>(
 
     if let Some(icon) = &component.icon_change {
         if let Some(old_icon) = game_icon.take() {
-            context.backend.free_texture(old_icon.texture);
+            context.backend.free_image(old_icon.texture);
         }
         *game_icon = context.create_icon(icon);
     }

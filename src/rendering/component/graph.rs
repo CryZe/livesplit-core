@@ -102,18 +102,17 @@ pub(in crate::rendering) fn render(
 
     for (i, point) in component.points.iter().enumerate().skip(1) {
         if i != component.points.len() - 1 || !component.is_live_delta_active {
-            let mut builder = context.backend.build_path();
-            builder.push_circle(width * point.x, point.y, CIRCLE_RADIUS);
-
             let color = if point.is_best_segment {
                 component.best_segment_color
             } else {
                 component.graph_lines_color
             };
 
-            let circles_path = builder.finish();
-            context.render_path(&circles_path, color);
-            context.free_path(circles_path);
+            let circle_path = context
+                .backend
+                .build_circle(width * point.x, point.y, CIRCLE_RADIUS);
+            context.render_path(&circle_path, color);
+            context.free_path(circle_path);
         }
     }
 

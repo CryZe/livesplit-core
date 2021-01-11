@@ -137,8 +137,6 @@ pub trait PathBuilder {
     /// Appends a CurveTo segment.
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32);
 
-    fn push_circle(&mut self, x: f32, y: f32, r: f32);
-
     /// Appends a ClosePath segment.
     ///
     /// End of a contour.
@@ -161,9 +159,23 @@ pub trait Backend {
     type PathBuilder: PathBuilder<Path = Self::Path>;
     type Path;
     /// The type the backend uses for textures.
-    type Texture;
+    type Image;
 
     fn build_path(&mut self) -> Self::PathBuilder;
+
+    fn build_circle(&mut self, x: f32, y: f32, r: f32) -> Self::Path {
+        // Based on https://spencermortensen.com/articles/bezier-circle/
+        const C: f64 = 0.551915024494;
+        let c = (C * r as f64) as f32;
+        let mut builder = self.build_path();
+        builder.move_to(x, y - r);
+        builder.curve_to(x + c, y - r, x + r, y - c, x + r, y);
+        builder.curve_to(x + r, y + c, x + c, y + r, x, y + r);
+        builder.curve_to(x - c, y + r, x - r, y + c, x - r, y);
+        builder.curve_to(x - r, y - c, x - c, y - r, x, y - r);
+        builder.close();
+        builder.finish()
+    }
 
     /// Instructs the backend to render out a mesh. The rendering uses no
     /// backface culling or depth buffering. The colors are supposed to be alpha
@@ -183,14 +195,17 @@ pub trait Backend {
     ///     (0, 1), // Bottom Left
     /// ]
     /// ```
-    fn render_path(
+    fn render_fill_path(&mut self, path: &Self::Path, shader: Shader, transform: Transform);
+
+    fn render_stroke_path(
         &mut self,
         path: &Self::Path,
-        stroke: Option<f32>,
+        stroke_width: f32,
+        color: Rgba,
         transform: Transform,
-        shader: Shader,
-        texture: Option<&Self::Texture>,
     );
+
+    fn render_image(&mut self, image: &Self::Image, rectangle: &Self::Path, transform: Transform);
 
     /// Instructs the backend to free a mesh as it is not needed anymore.
     fn free_path(&mut self, path: Self::Path);
@@ -199,10 +214,10 @@ pub trait Backend {
     /// provided. The texture's resolution is provided as well. The data is an
     /// array of chunks of RGBA8 encoded pixels (red, green, blue, alpha with
     /// each channel being an u8).
-    fn create_texture(&mut self, width: u32, height: u32, data: &[u8]) -> Self::Texture;
+    fn create_image(&mut self, width: u32, height: u32, data: &[u8]) -> Self::Image;
 
     /// Instructs the backend to free a texture as it is not needed anymore.
-    fn free_texture(&mut self, texture: Self::Texture);
+    fn free_image(&mut self, texture: Self::Image);
 
     /// Instructs the backend to resize the size of the render target.
     fn resize(&mut self, width: f32, height: f32);
@@ -214,7 +229,7 @@ enum CachedSize {
 }
 
 /// A renderer can be used to render out layout states with the backend chosen.
-pub struct Renderer<P, T> {
+pub struct Renderer<P, I> {
     #[cfg(feature = "font-loading")]
     timer_font_setting: Option<crate::settings::Font>,
     timer_font: Font<'static>,
@@ -229,23 +244,23 @@ pub struct Renderer<P, T> {
     text_glyph_cache: GlyphCache<P>,
     rectangle: Option<P>,
     cached_size: Option<CachedSize>,
-    icons: IconCache<T>,
+    icons: IconCache<I>,
     text_buffer: Option<UnicodeBuffer>,
 }
 
-struct IconCache<T> {
-    game_icon: Option<Icon<T>>,
-    split_icons: Vec<Option<Icon<T>>>,
-    detailed_timer_icon: Option<Icon<T>>,
+struct IconCache<I> {
+    game_icon: Option<Icon<I>>,
+    split_icons: Vec<Option<Icon<I>>>,
+    detailed_timer_icon: Option<Icon<I>>,
 }
 
-impl<P, T> Default for Renderer<P, T> {
+impl<P, I> Default for Renderer<P, I> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<P, T> Renderer<P, T> {
+impl<P, I> Renderer<P, I> {
     /// Creates a new renderer.
     pub fn new() -> Self {
         Self {
@@ -296,7 +311,7 @@ impl<P, T> Renderer<P, T> {
     /// Renders the layout state with the backend provided. A resolution needs
     /// to be provided as well so that the contents are rendered according to
     /// aspect ratio of the render target.
-    pub fn render<B: Backend<Path = P, Texture = T>>(
+    pub fn render<B: Backend<Path = P, Image = I>>(
         &mut self,
         backend: &mut B,
         resolution: (f32, f32),
@@ -368,7 +383,7 @@ impl<P, T> Renderer<P, T> {
         }
     }
 
-    fn render_vertical<B: Backend<Path = P, Texture = T>>(
+    fn render_vertical<B: Backend<Path = P, Image = I>>(
         &mut self,
         backend: &mut B,
         resolution: (f32, f32),
@@ -443,7 +458,7 @@ impl<P, T> Renderer<P, T> {
         }
     }
 
-    fn render_horizontal<B: Backend<Path = P, Texture = T>>(
+    fn render_horizontal<B: Backend<Path = P, Image = I>>(
         &mut self,
         backend: &mut B,
         resolution: (f32, f32),
@@ -524,7 +539,7 @@ impl<P, T> Renderer<P, T> {
 
 fn render_component<B: Backend>(
     context: &mut RenderContext<'_, B>,
-    icons: &mut IconCache<B::Texture>,
+    icons: &mut IconCache<B::Image>,
     component: &ComponentState,
     state: &LayoutState,
     dim: [f32; 2],
@@ -593,8 +608,7 @@ impl<B: Backend> RenderContext<'_, B> {
             }
         });
 
-        self.backend
-            .render_path(rectangle, None, transform, shader, None);
+        self.backend.render_fill_path(rectangle, shader, transform);
     }
 
     // fn create_path(&mut self, path: &Path) -> B::Path {
@@ -603,20 +617,15 @@ impl<B: Backend> RenderContext<'_, B> {
 
     fn render_path(&mut self, path: &B::Path, color: Color) {
         self.backend
-            .render_path(path, None, self.transform, solid(&color), None)
+            .render_fill_path(path, solid(&color), self.transform)
     }
 
     fn render_stroke_path(&mut self, path: &B::Path, color: Color, stroke_width: f32) {
-        self.backend.render_path(
-            path,
-            Some(stroke_width),
-            self.transform,
-            solid(&color),
-            None,
-        )
+        self.backend
+            .render_stroke_path(path, stroke_width, decode_color(&color), self.transform)
     }
 
-    fn create_icon(&mut self, image_data: &[u8]) -> Option<Icon<B::Texture>> {
+    fn create_icon(&mut self, image_data: &[u8]) -> Option<Icon<B::Image>> {
         if image_data.is_empty() {
             return None;
         }
@@ -624,7 +633,7 @@ impl<B: Backend> RenderContext<'_, B> {
         let image = image::load_from_memory(image_data).ok()?.to_rgba8();
         let texture = self
             .backend
-            .create_texture(image.width(), image.height(), &image);
+            .create_image(image.width(), image.height(), &image);
 
         Some(Icon {
             texture,
@@ -658,7 +667,7 @@ impl<B: Backend> RenderContext<'_, B> {
         &mut self,
         [mut x, mut y]: Pos,
         [mut width, mut height]: Pos,
-        icon: &Icon<B::Texture>,
+        icon: &Icon<B::Image>,
     ) {
         let box_aspect_ratio = width / height;
         let aspect_ratio_diff = box_aspect_ratio / icon.aspect_ratio;
@@ -694,13 +703,8 @@ impl<B: Backend> RenderContext<'_, B> {
             }
         });
 
-        self.backend.render_path(
-            rectangle,
-            None,
-            transform,
-            Shader::SolidColor([1.0; 4]),
-            Some(&icon.texture),
-        );
+        self.backend
+            .render_image(&icon.texture, rectangle, transform);
     }
 
     fn render_background(&mut self, background: &Gradient) {

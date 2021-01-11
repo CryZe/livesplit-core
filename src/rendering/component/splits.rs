@@ -16,7 +16,7 @@ pub(in crate::rendering) fn render<B: Backend>(
     [width, height]: [f32; 2],
     component: &State,
     layout_state: &LayoutState,
-    split_icons: &mut Vec<Option<Icon<B::Texture>>>,
+    split_icons: &mut Vec<Option<Icon<B::Image>>>,
 ) {
     let text_color = solid(&layout_state.text_color);
 
@@ -67,7 +67,7 @@ pub(in crate::rendering) fn render<B: Backend>(
         }
         let icon = &mut split_icons[icon_change.segment_index];
         if let Some(old_icon) = icon.take() {
-            context.backend.free_texture(old_icon.texture);
+            context.backend.free_image(old_icon.texture);
         }
         *icon = context.create_icon(&icon_change.icon);
     }
