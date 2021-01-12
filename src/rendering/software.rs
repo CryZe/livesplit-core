@@ -42,12 +42,9 @@ fn convert_color([r, g, b, a]: [f32; 4]) -> tiny_skia::Color {
     tiny_skia::Color::from_rgba(r, g, b, a).unwrap()
 }
 
-fn convert_transform(transform: Transform, width: f32, height: f32) -> tiny_skia::Transform {
+fn convert_transform(transform: Transform) -> tiny_skia::Transform {
     let [sx, ky, kx, sy, tx, ty] = transform.to_row_major_array();
-    tiny_skia::Transform::from_row(sx, ky, kx, sy, tx, ty)
-        .unwrap()
-        .post_scale(width, height)
-        .unwrap()
+    tiny_skia::Transform::from_row(sx, ky, kx, sy, tx, ty).unwrap()
 }
 
 struct SoftwareBackend<'a> {
@@ -65,10 +62,7 @@ impl Backend for SoftwareBackend<'_> {
 
     fn render_fill_path(&mut self, path: &Self::Path, shader: Shader, transform: Transform) {
         if let Some(path) = path {
-            let pixmap = self.canvas.pixmap();
-            let (w, h) = (pixmap.width() as _, pixmap.height() as _);
-            self.canvas
-                .set_transform(convert_transform(transform, w, h));
+            self.canvas.set_transform(convert_transform(transform));
 
             let shader = match shader {
                 Shader::SolidColor(col) => tiny_skia::Shader::SolidColor(convert_color(col)),
@@ -122,10 +116,7 @@ impl Backend for SoftwareBackend<'_> {
         transform: Transform,
     ) {
         if let Some(path) = path {
-            let pixmap = self.canvas.pixmap();
-            let (w, h) = (pixmap.width() as _, pixmap.height() as _);
-            self.canvas
-                .set_transform(convert_transform(transform, w, h));
+            self.canvas.set_transform(convert_transform(transform));
 
             self.canvas.stroke_path(
                 path,
@@ -144,10 +135,7 @@ impl Backend for SoftwareBackend<'_> {
 
     fn render_image(&mut self, image: &Self::Image, rectangle: &Self::Path, transform: Transform) {
         if let (Some(path), Some(image)) = (rectangle, image) {
-            let pixmap = self.canvas.pixmap();
-            let (w, h) = (pixmap.width() as _, pixmap.height() as _);
-            self.canvas
-                .set_transform(convert_transform(transform, w, h));
+            self.canvas.set_transform(convert_transform(transform));
 
             self.canvas.fill_path(
                 path,

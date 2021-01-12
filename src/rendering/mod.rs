@@ -417,7 +417,7 @@ impl<P, I> Renderer<P, I> {
 
         let mut context = RenderContext {
             backend,
-            transform: Transform::identity(),
+            transform: Transform::create_scale(resolution.0 as f32, resolution.1 as f32),
             rectangle: &mut self.rectangle,
             timer_font: &self.timer_font,
             timer_glyph_cache: &mut self.timer_glyph_cache,
@@ -491,7 +491,7 @@ impl<P, I> Renderer<P, I> {
 
         let mut context = RenderContext {
             backend,
-            transform: Transform::identity(),
+            transform: Transform::create_scale(resolution.0 as f32, resolution.1 as f32),
             rectangle: &mut self.rectangle,
             timer_font: &mut self.timer_font,
             timer_glyph_cache: &mut self.timer_glyph_cache,
