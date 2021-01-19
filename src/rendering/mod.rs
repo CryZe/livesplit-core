@@ -67,10 +67,12 @@ mod component;
 mod font;
 mod glyph_cache;
 mod icon;
-mod mesh;
 
 #[cfg(feature = "software-rendering")]
 pub mod software;
+
+#[cfg(feature = "mesh-rendering")]
+pub mod mesh_rendering;
 
 use self::{font::Font, glyph_cache::GlyphCache, icon::Icon};
 use crate::{
@@ -82,7 +84,6 @@ use core::iter;
 use euclid::{Transform2D, UnknownUnit};
 use rustybuzz::UnicodeBuffer;
 
-pub use self::mesh::{Mesh, Vertex};
 pub use euclid;
 
 /// The default font to be used for general text. The font is encoded as TTF.
@@ -120,7 +121,7 @@ fn vertical_padding(height: f32) -> f32 {
     (VERTICAL_PADDING * height).min(PADDING)
 }
 
-pub trait PathBuilder {
+pub trait PathBuilder<B: ?Sized> {
     type Path;
 
     /// Appends a MoveTo segment.
@@ -142,7 +143,7 @@ pub trait PathBuilder {
     /// End of a contour.
     fn close(&mut self);
 
-    fn finish(self) -> Self::Path;
+    fn finish(self, backend: &mut B) -> Self::Path;
 }
 
 #[derive(Copy, Clone)]
@@ -156,25 +157,27 @@ pub enum Shader {
 /// trait such that the rendering isn't tied to a specific rendering framework.
 pub trait Backend {
     /// The type the backend uses for paths.
-    type PathBuilder: PathBuilder<Path = Self::Path>;
+    type FillBuilder: PathBuilder<Self, Path = Self::Path>;
+    type StrokeBuilder: PathBuilder<Self, Path = Self::Path>;
     type Path;
     /// The type the backend uses for textures.
     type Image;
 
-    fn build_path(&mut self) -> Self::PathBuilder;
+    fn fill_builder(&mut self) -> Self::FillBuilder;
+    fn stroke_builder(&mut self, stroke_width: f32) -> Self::StrokeBuilder;
 
-    fn build_circle(&mut self, x: f32, y: f32, r: f32) -> Self::Path {
+    fn build_filled_circle(&mut self, x: f32, y: f32, r: f32) -> Self::Path {
         // Based on https://spencermortensen.com/articles/bezier-circle/
         const C: f64 = 0.551915024494;
         let c = (C * r as f64) as f32;
-        let mut builder = self.build_path();
+        let mut builder = self.fill_builder();
         builder.move_to(x, y - r);
         builder.curve_to(x + c, y - r, x + r, y - c, x + r, y);
         builder.curve_to(x + r, y + c, x + c, y + r, x, y + r);
         builder.curve_to(x - c, y + r, x - r, y + c, x - r, y);
         builder.curve_to(x - r, y - c, x - c, y - r, x, y - r);
         builder.close();
-        builder.finish()
+        builder.finish(self)
     }
 
     /// Instructs the backend to render out a mesh. The rendering uses no
@@ -217,7 +220,7 @@ pub trait Backend {
     fn create_image(&mut self, width: u32, height: u32, data: &[u8]) -> Self::Image;
 
     /// Instructs the backend to free a texture as it is not needed anymore.
-    fn free_image(&mut self, texture: Self::Image);
+    fn free_image(&mut self, image: Self::Image);
 
     /// Instructs the backend to resize the size of the render target.
     fn resize(&mut self, width: f32, height: f32);
@@ -417,7 +420,7 @@ impl<P, I> Renderer<P, I> {
 
         let mut context = RenderContext {
             backend,
-            transform: Transform::create_scale(resolution.0 as f32, resolution.1 as f32),
+            transform: Transform::scale(resolution.0 as f32, resolution.1 as f32),
             rectangle: &mut self.rectangle,
             timer_font: &self.timer_font,
             timer_glyph_cache: &mut self.timer_glyph_cache,
@@ -491,7 +494,7 @@ impl<P, I> Renderer<P, I> {
 
         let mut context = RenderContext {
             backend,
-            transform: Transform::create_scale(resolution.0 as f32, resolution.1 as f32),
+            transform: Transform::scale(resolution.0 as f32, resolution.1 as f32),
             rectangle: &mut self.rectangle,
             timer_font: &mut self.timer_font,
             timer_glyph_cache: &mut self.timer_glyph_cache,
@@ -596,15 +599,15 @@ impl<B: Backend> RenderContext<'_, B> {
             .pre_scale(x2 - x1, y2 - y1);
 
         let rectangle = self.rectangle.get_or_insert_with({
-            let backend = &mut self.backend;
+            let backend = &mut *self.backend;
             move || {
-                let mut builder = backend.build_path();
+                let mut builder = backend.fill_builder();
                 builder.move_to(0.0, 0.0);
                 builder.line_to(0.0, 1.0);
                 builder.line_to(1.0, 1.0);
                 builder.line_to(1.0, 0.0);
                 builder.close();
-                builder.finish()
+                builder.finish(backend)
             }
         });
 
@@ -631,12 +634,12 @@ impl<B: Backend> RenderContext<'_, B> {
         }
 
         let image = image::load_from_memory(image_data).ok()?.to_rgba8();
-        let texture = self
+        let backend_image = self
             .backend
             .create_image(image.width(), image.height(), &image);
 
         Some(Icon {
-            texture,
+            image: backend_image,
             aspect_ratio: image.width() as f32 / image.height() as f32,
         })
     }
@@ -691,20 +694,19 @@ impl<B: Backend> RenderContext<'_, B> {
 
         // TODO: Deduplicate
         let rectangle = self.rectangle.get_or_insert_with({
-            let backend = &mut self.backend;
+            let backend = &mut *self.backend;
             move || {
-                let mut builder = backend.build_path();
+                let mut builder = backend.fill_builder();
                 builder.move_to(0.0, 0.0);
                 builder.line_to(0.0, 1.0);
                 builder.line_to(1.0, 1.0);
                 builder.line_to(1.0, 0.0);
                 builder.close();
-                builder.finish()
+                builder.finish(backend)
             }
         });
 
-        self.backend
-            .render_image(&icon.texture, rectangle, transform);
+        self.backend.render_image(&icon.image, rectangle, transform);
     }
 
     fn render_background(&mut self, background: &Gradient) {

@@ -1,10 +1,12 @@
-use lyon::tessellation::{
-    geometry_builder::{
-        vertex_builder, BasicGeometryBuilder, FillGeometryBuilder, StrokeGeometryBuilder,
-    },
-    math::Point,
-    FillAttributes, StrokeAttributes, VertexBuffers,
-};
+use lyon_tessellation::VertexBuffers;
+
+// use lyon::tessellation::{
+//     geometry_builder::{
+//         vertex_builder, BasicGeometryBuilder, FillGeometryBuilder, StrokeGeometryBuilder,
+//     },
+//     math::Point,
+//     FillAttributes, StrokeAttributes, VertexBuffers,
+// };
 
 /// The vertex types describes a single point of a mesh used to form triangles.
 /// It uses a C compatible layout such that it can be directly uploaded to a GPU.
@@ -71,37 +73,37 @@ impl Mesh {
     }
 }
 
-pub fn stroke_builder(mesh: &mut Mesh) -> impl StrokeGeometryBuilder + '_ {
-    vertex_builder::<_, _, (), _>(
-        &mut mesh.buffers,
-        |p: Point, _: StrokeAttributes<'_, '_>| Vertex {
-            x: p.x,
-            y: p.y,
-            u: 0.0,
-            v: 0.0,
-        },
-    )
-}
+// pub fn stroke_builder(mesh: &mut Mesh) -> impl StrokeGeometryBuilder + '_ {
+//     vertex_builder::<_, _, (), _>(
+//         &mut mesh.buffers,
+//         |p: Point, _: StrokeAttributes<'_, '_>| Vertex {
+//             x: p.x,
+//             y: p.y,
+//             u: 0.0,
+//             v: 0.0,
+//         },
+//     )
+// }
 
-pub fn fill_builder(mesh: &mut Mesh) -> impl FillGeometryBuilder + '_ {
-    vertex_builder::<_, _, (), _>(&mut mesh.buffers, |p: Point, _: FillAttributes<'_>| {
-        Vertex {
-            x: p.x,
-            y: p.y,
-            u: 0.0,
-            v: 0.0,
-        }
-    })
-}
+// pub fn fill_builder(mesh: &mut Mesh) -> impl FillGeometryBuilder + '_ {
+//     vertex_builder::<_, _, (), _>(&mut mesh.buffers, |p: Point, _: FillAttributes<'_>| {
+//         Vertex {
+//             x: p.x,
+//             y: p.y,
+//             u: 0.0,
+//             v: 0.0,
+//         }
+//     })
+// }
 
-pub fn basic_builder(mesh: &mut Mesh) -> impl BasicGeometryBuilder + '_ {
-    vertex_builder::<_, _, (), _>(&mut mesh.buffers, |p: Point| Vertex {
-        x: p.x,
-        y: p.y,
-        u: 0.0,
-        v: 0.0,
-    })
-}
+// pub fn basic_builder(mesh: &mut Mesh) -> impl BasicGeometryBuilder + '_ {
+//     vertex_builder::<_, _, (), _>(&mut mesh.buffers, |p: Point| Vertex {
+//         x: p.x,
+//         y: p.y,
+//         u: 0.0,
+//         v: 0.0,
+//     })
+// }
 
 pub fn rectangle() -> Mesh {
     let mut buffers = VertexBuffers::new();

@@ -1,18 +1,12 @@
-use super::{
-    font::Font,
-    mesh::{fill_builder, Mesh},
-    Backend,
-};
+use std::marker::PhantomData;
+
+use super::{font::Font, Backend};
 use hashbrown::HashMap;
-use lyon::{
-    path::{self, math::point, Path},
-    tessellation::{FillOptions, FillTessellator},
-};
 use ttf_parser::OutlineBuilder;
 
-struct PathBuilder<PB>(PB);
+struct PathBuilder<B, PB>(PB, PhantomData<fn(&mut B)>);
 
-impl<PB: super::PathBuilder> OutlineBuilder for PathBuilder<PB> {
+impl<B, PB: super::PathBuilder<B>> OutlineBuilder for PathBuilder<B, PB> {
     fn move_to(&mut self, x: f32, y: f32) {
         self.0.move_to(x, -y);
     }
@@ -61,9 +55,9 @@ impl<P> GlyphCache<P> {
         backend: &mut impl Backend<Path = P>,
     ) -> &P {
         self.glyphs.entry(glyph).or_insert_with(|| {
-            let mut builder = PathBuilder(backend.build_path());
+            let mut builder = PathBuilder(backend.fill_builder(), PhantomData);
             font.outline_glyph(glyph, &mut builder);
-            super::PathBuilder::finish(builder.0)
+            super::PathBuilder::finish(builder.0, backend)
         })
     }
 }

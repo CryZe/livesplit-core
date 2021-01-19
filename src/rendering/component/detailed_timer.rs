@@ -23,7 +23,7 @@ pub(in crate::rendering) fn render<B: Backend>(
 
     if let Some(icon) = &component.icon_change {
         if let Some(old_icon) = detailed_timer_icon.take() {
-            context.backend.free_image(old_icon.texture);
+            context.backend.free_image(old_icon.image);
         }
         *detailed_timer_icon = context.create_icon(&icon);
     }

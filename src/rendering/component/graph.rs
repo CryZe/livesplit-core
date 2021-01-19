@@ -1,17 +1,9 @@
 use crate::{
     component::graph::State,
     layout::LayoutState,
-    rendering::{
-        mesh::{basic_builder, fill_builder, stroke_builder},
-        Backend, PathBuilder, RenderContext,
-    },
+    rendering::{Backend, PathBuilder, RenderContext},
     settings::Gradient,
 };
-// use lyon::tessellation::{
-//     basic_shapes::{fill_circle, fill_polyline, stroke_polyline},
-//     FillOptions, FillTessellator, StrokeOptions,
-// };
-use std::iter;
 
 pub(in crate::rendering) fn render(
     context: &mut RenderContext<'_, impl Backend>,
@@ -58,13 +50,13 @@ pub(in crate::rendering) fn render(
         let p1 = &component.points[component.points.len() - 2];
         let p2 = &component.points[component.points.len() - 1];
 
-        let mut builder = context.backend.build_path();
+        let mut builder = context.backend.fill_builder();
         builder.move_to(width * p1.x, component.middle);
         builder.line_to(width * p1.x, p1.y);
         builder.line_to(width * p2.x, p2.y);
         builder.line_to(width * p2.x, component.middle);
         builder.close();
-        let partial_fill_path = builder.finish();
+        let partial_fill_path = builder.finish(context.backend);
         context.render_path(&partial_fill_path, component.partial_fill_color);
         context.free_path(partial_fill_path);
 
@@ -73,19 +65,19 @@ pub(in crate::rendering) fn render(
         component.points.len()
     };
 
-    let mut builder = context.backend.build_path();
+    let mut builder = context.backend.fill_builder();
     builder.move_to(0.0, component.middle);
     for p in &component.points[..len] {
         builder.line_to(width * p.x, p.y);
     }
     builder.line_to(width * component.points[len - 1].x, component.middle);
     builder.close();
-    let fill_path = builder.finish();
+    let fill_path = builder.finish(context.backend);
     context.render_path(&fill_path, component.complete_fill_color);
     context.free_path(fill_path);
 
     for points in component.points.windows(2) {
-        let mut builder = context.backend.build_path();
+        let mut builder = context.backend.stroke_builder(LINE_WIDTH);
         builder.move_to(width * points[0].x, points[0].y);
         builder.line_to(width * points[1].x, points[1].y);
 
@@ -95,7 +87,7 @@ pub(in crate::rendering) fn render(
             component.graph_lines_color
         };
 
-        let line_path = builder.finish();
+        let line_path = builder.finish(context.backend);
         context.render_stroke_path(&line_path, color, LINE_WIDTH);
         context.free_path(line_path);
     }
@@ -108,9 +100,10 @@ pub(in crate::rendering) fn render(
                 component.graph_lines_color
             };
 
-            let circle_path = context
-                .backend
-                .build_circle(width * point.x, point.y, CIRCLE_RADIUS);
+            let circle_path =
+                context
+                    .backend
+                    .build_filled_circle(width * point.x, point.y, CIRCLE_RADIUS);
             context.render_path(&circle_path, color);
             context.free_path(circle_path);
         }

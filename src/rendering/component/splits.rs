@@ -67,7 +67,7 @@ pub(in crate::rendering) fn render<B: Backend>(
         }
         let icon = &mut split_icons[icon_change.segment_index];
         if let Some(old_icon) = icon.take() {
-            context.backend.free_image(old_icon.texture);
+            context.backend.free_image(old_icon.image);
         }
         *icon = context.create_icon(&icon_change.icon);
     }

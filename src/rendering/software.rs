@@ -2,15 +2,16 @@
 //! is much slower than with a normal GPU, but might be sufficient for
 //! situations where you want to create a screenshot of the layout.
 
-use super::{Backend, Mesh, Renderer, Rgba, Shader, Transform};
+use super::{Backend, Renderer, Rgba, Shader, Transform};
 use crate::layout::LayoutState;
-use tiny_skia::{Canvas, Pixmap};
+use image::ImageBuffer;
+use tiny_skia::{Canvas, Pixmap, PixmapMut};
 
 pub use image::{self, RgbaImage};
 
 struct SkiaBuilder(tiny_skia::PathBuilder);
 
-impl super::PathBuilder for SkiaBuilder {
+impl super::PathBuilder<SoftwareBackend<'_>> for SkiaBuilder {
     type Path = Option<tiny_skia::Path>;
 
     fn move_to(&mut self, x: f32, y: f32) {
@@ -33,7 +34,7 @@ impl super::PathBuilder for SkiaBuilder {
         self.0.close()
     }
 
-    fn finish(self) -> Self::Path {
+    fn finish(self, _: &mut SoftwareBackend<'_>) -> Self::Path {
         self.0.finish()
     }
 }
@@ -43,7 +44,7 @@ fn convert_color([r, g, b, a]: [f32; 4]) -> tiny_skia::Color {
 }
 
 fn convert_transform(transform: Transform) -> tiny_skia::Transform {
-    let [sx, ky, kx, sy, tx, ty] = transform.to_row_major_array();
+    let [sx, ky, kx, sy, tx, ty] = transform.to_array();
     tiny_skia::Transform::from_row(sx, ky, kx, sy, tx, ty).unwrap()
 }
 
@@ -52,11 +53,16 @@ struct SoftwareBackend<'a> {
 }
 
 impl Backend for SoftwareBackend<'_> {
-    type PathBuilder = SkiaBuilder;
+    type FillBuilder = SkiaBuilder;
+    type StrokeBuilder = SkiaBuilder;
     type Path = Option<tiny_skia::Path>;
     type Image = Option<tiny_skia::Pixmap>;
 
-    fn build_path(&mut self) -> Self::PathBuilder {
+    fn fill_builder(&mut self) -> Self::FillBuilder {
+        SkiaBuilder(tiny_skia::PathBuilder::new())
+    }
+
+    fn stroke_builder(&mut self, _: f32) -> Self::StrokeBuilder {
         SkiaBuilder(tiny_skia::PathBuilder::new())
     }
 
@@ -178,6 +184,40 @@ impl Backend for SoftwareBackend<'_> {
     fn resize(&mut self, _: f32, _: f32) {}
 }
 
+pub struct BorrowedSoftwareRenderer {
+    renderer: Renderer<Option<tiny_skia::Path>, Option<tiny_skia::Pixmap>>,
+}
+
+impl BorrowedSoftwareRenderer {
+    pub fn new() -> Self {
+        Self {
+            renderer: Renderer::new(),
+        }
+    }
+
+    pub fn render(
+        &mut self,
+        state: &LayoutState,
+        image: &mut [u8],
+        [width, height]: [u32; 2],
+        stride: u32,
+    ) {
+        let mut pixmap = PixmapMut::from_bytes(image, stride, height).unwrap();
+
+        // FIXME: .fill() once it's stable.
+        for b in pixmap.data_mut() {
+            *b = 0;
+        }
+
+        let mut backend = SoftwareBackend {
+            canvas: Canvas::from(pixmap),
+        };
+
+        self.renderer
+            .render(&mut backend, (width as _, height as _), &state);
+    }
+}
+
 pub struct SoftwareRenderer {
     renderer: Renderer<Option<tiny_skia::Path>, Option<tiny_skia::Pixmap>>,
     pixmap: Pixmap,
@@ -216,8 +256,16 @@ impl SoftwareRenderer {
             .render(&mut backend, (width as _, height as _), &state);
     }
 
-    pub fn image(&self) -> image::ImageBuffer<image::Rgba<u8>, &[u8]> {
-        image::ImageBuffer::from_raw(
+    pub fn image_data(&self) -> &[u8] {
+        self.pixmap.data()
+    }
+
+    pub fn into_image_data(self) -> Vec<u8> {
+        self.pixmap.take()
+    }
+
+    pub fn image(&self) -> ImageBuffer<image::Rgba<u8>, &[u8]> {
+        ImageBuffer::from_raw(
             self.pixmap.width(),
             self.pixmap.height(),
             self.pixmap.data(),
@@ -225,7 +273,7 @@ impl SoftwareRenderer {
         .unwrap()
     }
 
-    pub fn into_image(self) -> image::RgbaImage {
+    pub fn into_image(self) -> RgbaImage {
         RgbaImage::from_raw(
             self.pixmap.width(),
             self.pixmap.height(),
