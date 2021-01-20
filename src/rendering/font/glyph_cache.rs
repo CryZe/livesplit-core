@@ -1,12 +1,14 @@
 use std::marker::PhantomData;
 
-use super::{font::Font, Backend};
+use crate::settings::Color;
+
+use super::{color_font::iter_colored_glyphs, Backend, Font};
 use hashbrown::HashMap;
 use ttf_parser::OutlineBuilder;
 
 struct PathBuilder<B, PB>(PB, PhantomData<fn(&mut B)>);
 
-impl<B, PB: super::PathBuilder<B>> OutlineBuilder for PathBuilder<B, PB> {
+impl<B, PB: super::super::PathBuilder<B>> OutlineBuilder for PathBuilder<B, PB> {
     fn move_to(&mut self, x: f32, y: f32) {
         self.0.move_to(x, -y);
     }
@@ -25,7 +27,7 @@ impl<B, PB: super::PathBuilder<B>> OutlineBuilder for PathBuilder<B, PB> {
 }
 
 pub struct GlyphCache<P> {
-    glyphs: HashMap<u32, P>,
+    glyphs: HashMap<u32, Vec<(Option<Color>, P)>>,
 }
 
 impl<P> Default for GlyphCache<P> {
@@ -43,8 +45,10 @@ impl<P> GlyphCache<P> {
 
     #[cfg(feature = "font-loading")]
     pub fn clear(&mut self, backend: &mut impl Backend<Path = P>) {
-        for (_, path) in self.glyphs.drain() {
-            backend.free_path(path);
+        for (_, glyph) in self.glyphs.drain() {
+            for (_, layer) in glyph {
+                backend.free_path(layer);
+            }
         }
     }
 
@@ -53,11 +57,16 @@ impl<P> GlyphCache<P> {
         font: &Font<'_>,
         glyph: u32,
         backend: &mut impl Backend<Path = P>,
-    ) -> &P {
+    ) -> &[(Option<Color>, P)] {
         self.glyphs.entry(glyph).or_insert_with(|| {
-            let mut builder = PathBuilder(backend.fill_builder(), PhantomData);
-            font.outline_glyph(glyph, &mut builder);
-            super::PathBuilder::finish(builder.0, backend)
+            let mut glyphs = Vec::new();
+            iter_colored_glyphs(&font.color_tables, 0, glyph as _, |glyph, color| {
+                let mut builder = PathBuilder(backend.fill_builder(), PhantomData);
+                font.outline_glyph(glyph, &mut builder);
+                let path = super::super::PathBuilder::finish(builder.0, backend);
+                glyphs.push((color, path));
+            });
+            glyphs
         })
     }
 }

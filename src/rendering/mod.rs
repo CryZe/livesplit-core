@@ -65,7 +65,6 @@
 
 mod component;
 mod font;
-mod glyph_cache;
 mod icon;
 
 #[cfg(feature = "software-rendering")]
@@ -74,7 +73,7 @@ pub mod software;
 #[cfg(feature = "mesh-rendering")]
 pub mod mesh_rendering;
 
-use self::{font::Font, glyph_cache::GlyphCache, icon::Icon};
+use self::{font::{Font, GlyphCache}, icon::Icon};
 use crate::{
     layout::{ComponentState, LayoutDirection, LayoutState},
     settings::{Color, FontStretch, FontStyle, FontWeight, Gradient},
