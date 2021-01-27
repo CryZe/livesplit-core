@@ -1,18 +1,20 @@
 //! The rendering module provides a renderer for layout states that is
-//! abstracted over different backends so that it can be used with OpenGL,
-//! DirectX, Vulkan, Metal, WebGL or any other rendering framework. An optional
-//! software renderer is available behind the `software-rendering` feature.
-//! While it is slower than using a proper GPU backend, it might be sufficient
-//! for situations where you want to create a screenshot of the layout.
+//! abstracted over different backends. It focuses on rendering paths, i.e.
+//! lines, quadratic and cubic bezier curves. A backend therefore needs to be
+//! able to render paths. An optional software renderer is available behind the
+//! `software-rendering` feature that uses tiny-skia to efficiently render the
+//! paths on the CPU. It is surprisingly fast and can be considered the default
+//! renderer.
 
 // # Coordinate spaces used in this module
 //
 // ## Backend Coordinate Space
 //
-// The backend has its own coordinate space that ranges from 0 to 1 across both
-// dimensions. (0, 0) is the top left corner of the rendered layout and (1, 1)
-// is the bottom right corner. Since the coordinate space forms a square, the
-// aspect ratio of the layout is not respected.
+// The backend can choose its own coordinate space by passing its own width and
+// height to the renderer. (0, 0) is the top left corner of the rendered layout,
+// and (width, height) is the bottom right corner. In most situations width and
+// height will be the actual pixel dimensions of the image that is being
+// rendered to.
 //
 // ## Renderer Coordinate Space
 //
@@ -50,14 +52,14 @@
 //
 // The default height of a component in the component coordinate space is 1.
 // This is equal to the height of one split or one key value component. The
-// default text size is 0.8. There is a padding of 0.35 to the left and right
+// default text size is 0.725. There is a padding of 0.35 to the left and right
 // side of a component for the contents shown inside a component, such as images
 // and texts. The same padding of 0.35 is also used for the minimum spacing
 // between text and other content such as an icon or another text. A vertical
-// padding of 10% of the height of the available space is chosen unless that is
-// larger than the normal padding. If text doesn't fit, it is to be either
-// abbreviated or overflown via the use of ellipsis. Numbers and times are
-// supposed to be aligned to the right and should be using a monospace text
+// padding of 10% of the height of the available space is chosen for images
+// unless that is larger than the normal padding. If text doesn't fit, it is to
+// be either abbreviated or overflown via the use of ellipsis. Numbers and times
+// are supposed to be aligned to the right and should be using a monospace text
 // layout. Sometimes components are rendered in two row mode. The height of
 // these components is 1.8. All components also need to be able to render with
 // this height in horizontal mode. Separators have a thickness of 0.1, while
@@ -73,7 +75,10 @@ pub mod software;
 #[cfg(feature = "mesh-rendering")]
 pub mod mesh_rendering;
 
-use self::{font::{Font, GlyphCache}, icon::Icon};
+use self::{
+    font::{Font, GlyphCache, TEXT_FONT, TIMER_FONT},
+    icon::Icon,
+};
 use crate::{
     layout::{ComponentState, LayoutDirection, LayoutState},
     settings::{Color, FontStretch, FontStyle, FontWeight, Gradient},
@@ -84,11 +89,6 @@ use euclid::{Transform2D, UnknownUnit};
 use rustybuzz::UnicodeBuffer;
 
 pub use euclid;
-
-/// The default font to be used for general text. The font is encoded as TTF.
-pub const TEXT_FONT: &[u8] = include_bytes!("fonts/FiraSans-Regular.ttf");
-/// The default font to be used for timers. The font is encoded as TTF.
-pub const TIMER_FONT: &[u8] = include_bytes!("fonts/Timer.ttf");
 
 /// Describes a coordinate in 2D space.
 pub type Pos = [f32; 2];
@@ -103,10 +103,11 @@ const PADDING: f32 = 0.35;
 const BOTH_PADDINGS: f32 = 2.0 * PADDING;
 const BOTH_VERTICAL_PADDINGS: f32 = DEFAULT_COMPONENT_HEIGHT - DEFAULT_TEXT_SIZE;
 const VERTICAL_PADDING: f32 = BOTH_VERTICAL_PADDINGS / 2.0;
+const ICON_MIN_VERTICAL_PADDING: f32 = 0.1;
 const DEFAULT_COMPONENT_HEIGHT: f32 = 1.0;
 const TWO_ROW_HEIGHT: f32 = 2.0 * DEFAULT_TEXT_SIZE + BOTH_VERTICAL_PADDINGS;
-const DEFAULT_TEXT_SIZE: f32 = 0.8;
-const DEFAULT_TEXT_ASCENT: f32 = 0.6;
+const DEFAULT_TEXT_SIZE: f32 = 0.725;
+const DEFAULT_TEXT_ASCENT: f32 = 0.55;
 const DEFAULT_TEXT_DESCENT: f32 = DEFAULT_TEXT_SIZE - DEFAULT_TEXT_ASCENT;
 const TEXT_ALIGN_TOP: f32 = VERTICAL_PADDING + DEFAULT_TEXT_ASCENT;
 const TEXT_ALIGN_BOTTOM: f32 = -(VERTICAL_PADDING + DEFAULT_TEXT_DESCENT);
@@ -117,7 +118,7 @@ const PSEUDO_PIXELS: f32 = 1.0 / 24.0;
 const DEFAULT_VERTICAL_WIDTH: f32 = 11.5;
 
 fn vertical_padding(height: f32) -> f32 {
-    (VERTICAL_PADDING * height).min(PADDING)
+    (ICON_MIN_VERTICAL_PADDING * height).min(PADDING)
 }
 
 pub trait PathBuilder<B: ?Sized> {
@@ -155,9 +156,13 @@ pub enum Shader {
 /// The rendering backend for the Renderer is abstracted out into the Backend
 /// trait such that the rendering isn't tied to a specific rendering framework.
 pub trait Backend {
-    /// The type the backend uses for paths.
+    /// The type the backend uses for building paths that are going to be
+    /// rendered with a fill shader.
     type FillBuilder: PathBuilder<Self, Path = Self::Path>;
+    /// The type the backend uses for building paths that are going to be
+    /// rendered with a stroke shader.
     type StrokeBuilder: PathBuilder<Self, Path = Self::Path>;
+    /// The type the backend uses for paths.
     type Path;
     /// The type the backend uses for textures.
     type Image;
@@ -220,9 +225,6 @@ pub trait Backend {
 
     /// Instructs the backend to free a texture as it is not needed anymore.
     fn free_image(&mut self, image: Self::Image);
-
-    /// Instructs the backend to resize the size of the render target.
-    fn resize(&mut self, width: f32, height: f32);
 }
 
 enum CachedSize {
@@ -318,7 +320,7 @@ impl<P, I> Renderer<P, I> {
         backend: &mut B,
         resolution: (f32, f32),
         state: &LayoutState,
-    ) {
+    ) -> Option<(f32, f32)> {
         #[cfg(feature = "font-loading")]
         {
             if self.timer_font_setting != state.timer_font {
@@ -390,19 +392,21 @@ impl<P, I> Renderer<P, I> {
         backend: &mut B,
         resolution: (f32, f32),
         state: &LayoutState,
-    ) {
+    ) -> Option<(f32, f32)> {
         let total_height = state.components.iter().map(component_height).sum::<f32>();
 
         let cached_total_size = self
             .cached_size
             .get_or_insert(CachedSize::Vertical(total_height));
+        let mut new_resolution = None;
+
         match cached_total_size {
             CachedSize::Vertical(cached_total_height) => {
                 if *cached_total_height != total_height {
-                    backend.resize(
+                    new_resolution = Some((
                         resolution.0,
                         resolution.1 / *cached_total_height * total_height,
-                    );
+                    ));
                     *cached_total_height = total_height;
                 }
             }
@@ -410,7 +414,7 @@ impl<P, I> Renderer<P, I> {
                 let to_pixels = resolution.1 / TWO_ROW_HEIGHT;
                 let new_height = total_height * to_pixels;
                 let new_width = DEFAULT_VERTICAL_WIDTH * to_pixels;
-                backend.resize(new_width, new_height);
+                new_resolution = Some((new_width, new_height));
                 *cached_total_size = CachedSize::Vertical(total_height);
             }
         }
@@ -458,6 +462,8 @@ impl<P, I> Renderer<P, I> {
             // current component in the Component Coordinate Space.
             context.translate(0.0, height);
         }
+
+        new_resolution
     }
 
     fn render_horizontal<B: Backend<Path = P, Image = I>>(
@@ -465,25 +471,27 @@ impl<P, I> Renderer<P, I> {
         backend: &mut B,
         resolution: (f32, f32),
         state: &LayoutState,
-    ) {
+    ) -> Option<(f32, f32)> {
         let total_width = state.components.iter().map(component_width).sum::<f32>();
 
         let cached_total_size = self
             .cached_size
             .get_or_insert(CachedSize::Horizontal(total_width));
+        let mut new_resolution = None;
+
         match cached_total_size {
             CachedSize::Vertical(cached_total_height) => {
                 let new_height = resolution.1 * TWO_ROW_HEIGHT / *cached_total_height;
                 let new_width = total_width * new_height / TWO_ROW_HEIGHT;
-                backend.resize(new_width, new_height);
+                new_resolution = Some((new_width, new_height));
                 *cached_total_size = CachedSize::Horizontal(total_width);
             }
             CachedSize::Horizontal(cached_total_width) => {
                 if *cached_total_width != total_width {
-                    backend.resize(
+                    new_resolution = Some((
                         resolution.0 / *cached_total_width * total_width,
                         resolution.1,
-                    );
+                    ));
                     *cached_total_width = total_width;
                 }
             }
@@ -536,6 +544,8 @@ impl<P, I> Renderer<P, I> {
             // current component in the Component Coordinate Space.
             context.translate(width, 0.0);
         }
+
+        new_resolution
     }
 }
 
@@ -612,10 +622,6 @@ impl<B: Backend> RenderContext<'_, B> {
 
         self.backend.render_fill_path(rectangle, shader, transform);
     }
-
-    // fn create_path(&mut self, path: &Path) -> B::Path {
-    //     self.backend.create_path(path)
-    // }
 
     fn render_path(&mut self, path: &B::Path, color: Color) {
         self.backend

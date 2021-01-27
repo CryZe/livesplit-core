@@ -2,10 +2,8 @@ mod color_font;
 mod glyph_cache;
 
 use self::color_font::ColorTables;
-use super::{decode_color, solid, Backend, Pos, Shader, Transform};
-use crate::settings::{Color, FontStretch, FontStyle, FontWeight};
-#[cfg(feature = "font-loading")]
-use font_kit::properties::{Stretch, Style, Weight};
+use super::{solid, Backend, Pos, Shader, Transform};
+use crate::settings::{FontStretch, FontStyle, FontWeight};
 use rustybuzz::{Face, Feature, GlyphBuffer, Tag, UnicodeBuffer, Variation};
 use ttf_parser::{GlyphId, OutlineBuilder};
 
@@ -14,10 +12,17 @@ pub use self::glyph_cache::GlyphCache;
 #[cfg(feature = "font-loading")]
 use {
     font_kit::{
-        family_name::FamilyName, handle::Handle, properties::Properties, source::SystemSource,
+        family_name::FamilyName,
+        handle::Handle,
+        properties::Properties,
+        properties::{Stretch, Style, Weight},
+        source::SystemSource,
     },
     std::{fs, sync::Arc},
 };
+
+pub const TEXT_FONT: &[u8] = include_bytes!("assets/FiraSans-Regular.ttf");
+pub const TIMER_FONT: &[u8] = include_bytes!("assets/Timer.ttf");
 
 pub struct Font<'fd> {
     rb: Face<'fd>,
@@ -121,14 +126,6 @@ impl<'fd> Font<'fd> {
         self.face
             .outline_glyph(GlyphId(glyph_id), builder)
             .is_some()
-    }
-
-    pub fn descender(&self) -> f32 {
-        self.face.descender() as f32
-    }
-
-    pub fn height(&self) -> f32 {
-        self.face.height() as f32
     }
 }
 

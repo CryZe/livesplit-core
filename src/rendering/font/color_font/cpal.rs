@@ -6,6 +6,7 @@ use bytemuck::{Pod, Zeroable};
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 struct Header {
+    version: U16,
     num_palette_entries: U16,
     num_palettes: U16,
     num_color_records: U16,
@@ -30,10 +31,9 @@ pub struct ColorRecord {
 }
 
 pub fn look_up(table: &[u8], palette_idx: usize, palette_entry_idx: u16) -> Option<&ColorRecord> {
-    let start_of_header = table.get(2..)?;
-    let header = pod::<Header>(start_of_header)?;
+    let header = pod::<Header>(table)?;
     let color_record_indices = slice::<U16>(
-        start_of_header.get(mem::size_of::<Header>()..)?,
+        table.get(mem::size_of::<Header>()..)?,
         header.num_palettes.usize(),
     )?;
     let color_records = slice::<ColorRecord>(

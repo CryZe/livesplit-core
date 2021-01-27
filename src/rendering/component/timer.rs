@@ -1,6 +1,6 @@
 use crate::{
     component::timer::State,
-    rendering::{decode_color, Backend, RenderContext, Shader, DEFAULT_TEXT_SIZE, PADDING},
+    rendering::{decode_color, Backend, RenderContext, Shader, PADDING},
 };
 
 pub(in crate::rendering) fn render(
@@ -16,7 +16,7 @@ pub(in crate::rendering) fn render(
     let x = context.render_timer(
         &component.fraction,
         [width - PADDING, 0.85 * height],
-        DEFAULT_TEXT_SIZE * height,
+        0.8 * height,
         shader,
     );
     context.render_timer(&component.time, [x, 0.85 * height], 1.2 * height, shader)

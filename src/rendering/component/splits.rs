@@ -9,7 +9,7 @@ use crate::{
     settings::{Gradient, ListGradient},
 };
 
-pub const COLUMN_WIDTH: f32 = 3.0;
+pub const COLUMN_WIDTH: f32 = 2.75;
 
 pub(in crate::rendering) fn render<B: Backend>(
     context: &mut RenderContext<'_, B>,

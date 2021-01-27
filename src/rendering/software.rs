@@ -5,14 +5,17 @@
 use super::{Backend, Renderer, Rgba, Shader, Transform};
 use crate::layout::LayoutState;
 use image::ImageBuffer;
-use tiny_skia::{Canvas, Pixmap, PixmapMut};
+use tiny_skia::{
+    Canvas, Color, FillRule, FilterQuality, GradientStop, LinearGradient, Paint, Path, PathBuilder,
+    Pattern, Pixmap, PixmapMut, Point, SpreadMode, Stroke,
+};
 
 pub use image::{self, RgbaImage};
 
-struct SkiaBuilder(tiny_skia::PathBuilder);
+struct SkiaBuilder(PathBuilder);
 
 impl super::PathBuilder<SoftwareBackend<'_>> for SkiaBuilder {
-    type Path = Option<tiny_skia::Path>;
+    type Path = Option<Path>;
 
     fn move_to(&mut self, x: f32, y: f32) {
         self.0.move_to(x, y)
@@ -39,8 +42,8 @@ impl super::PathBuilder<SoftwareBackend<'_>> for SkiaBuilder {
     }
 }
 
-fn convert_color([r, g, b, a]: [f32; 4]) -> tiny_skia::Color {
-    tiny_skia::Color::from_rgba(r, g, b, a).unwrap()
+fn convert_color([r, g, b, a]: [f32; 4]) -> Color {
+    Color::from_rgba(r, g, b, a).unwrap()
 }
 
 fn convert_transform(transform: Transform) -> tiny_skia::Transform {
@@ -55,15 +58,15 @@ struct SoftwareBackend<'a> {
 impl Backend for SoftwareBackend<'_> {
     type FillBuilder = SkiaBuilder;
     type StrokeBuilder = SkiaBuilder;
-    type Path = Option<tiny_skia::Path>;
-    type Image = Option<tiny_skia::Pixmap>;
+    type Path = Option<Path>;
+    type Image = Option<Pixmap>;
 
     fn fill_builder(&mut self) -> Self::FillBuilder {
-        SkiaBuilder(tiny_skia::PathBuilder::new())
+        SkiaBuilder(PathBuilder::new())
     }
 
     fn stroke_builder(&mut self, _: f32) -> Self::StrokeBuilder {
-        SkiaBuilder(tiny_skia::PathBuilder::new())
+        SkiaBuilder(PathBuilder::new())
     }
 
     fn render_fill_path(&mut self, path: &Self::Path, shader: Shader, transform: Transform) {
@@ -74,28 +77,28 @@ impl Backend for SoftwareBackend<'_> {
                 Shader::SolidColor(col) => tiny_skia::Shader::SolidColor(convert_color(col)),
                 Shader::VerticalGradient(top, bottom) => {
                     let bounds = path.bounds();
-                    tiny_skia::LinearGradient::new(
-                        tiny_skia::Point::from_xy(0.0, bounds.top()),
-                        tiny_skia::Point::from_xy(0.0, bounds.bottom()),
+                    LinearGradient::new(
+                        Point::from_xy(0.0, bounds.top()),
+                        Point::from_xy(0.0, bounds.bottom()),
                         vec![
-                            tiny_skia::GradientStop::new(0.0, convert_color(top)),
-                            tiny_skia::GradientStop::new(1.0, convert_color(bottom)),
+                            GradientStop::new(0.0, convert_color(top)),
+                            GradientStop::new(1.0, convert_color(bottom)),
                         ],
-                        tiny_skia::SpreadMode::Pad,
+                        SpreadMode::Pad,
                         tiny_skia::Transform::identity(),
                     )
                     .unwrap()
                 }
                 Shader::HorizontalGradient(left, right) => {
                     let bounds = path.bounds();
-                    tiny_skia::LinearGradient::new(
-                        tiny_skia::Point::from_xy(bounds.left(), 0.0),
-                        tiny_skia::Point::from_xy(bounds.right(), 0.0),
+                    LinearGradient::new(
+                        Point::from_xy(bounds.left(), 0.0),
+                        Point::from_xy(bounds.right(), 0.0),
                         vec![
-                            tiny_skia::GradientStop::new(0.0, convert_color(left)),
-                            tiny_skia::GradientStop::new(1.0, convert_color(right)),
+                            GradientStop::new(0.0, convert_color(left)),
+                            GradientStop::new(1.0, convert_color(right)),
                         ],
-                        tiny_skia::SpreadMode::Pad,
+                        SpreadMode::Pad,
                         tiny_skia::Transform::identity(),
                     )
                     .unwrap()
@@ -104,12 +107,12 @@ impl Backend for SoftwareBackend<'_> {
 
             self.canvas.fill_path(
                 path,
-                &tiny_skia::Paint {
+                &Paint {
                     shader,
                     anti_alias: true,
                     ..Default::default()
                 },
-                tiny_skia::FillRule::Winding,
+                FillRule::Winding,
             );
         }
     }
@@ -126,12 +129,12 @@ impl Backend for SoftwareBackend<'_> {
 
             self.canvas.stroke_path(
                 path,
-                &tiny_skia::Paint {
+                &Paint {
                     shader: tiny_skia::Shader::SolidColor(convert_color(color)),
                     anti_alias: true,
                     ..Default::default()
                 },
-                &tiny_skia::Stroke {
+                &Stroke {
                     width: stroke_width,
                     ..Default::default()
                 },
@@ -145,11 +148,11 @@ impl Backend for SoftwareBackend<'_> {
 
             self.canvas.fill_path(
                 path,
-                &tiny_skia::Paint {
-                    shader: tiny_skia::Pattern::new(
+                &Paint {
+                    shader: Pattern::new(
                         image.as_ref(),
-                        tiny_skia::SpreadMode::Pad,
-                        tiny_skia::FilterQuality::Bilinear,
+                        SpreadMode::Pad,
+                        FilterQuality::Bilinear,
                         1.0,
                         tiny_skia::Transform::from_scale(
                             1.0 / image.width() as f32,
@@ -160,7 +163,7 @@ impl Backend for SoftwareBackend<'_> {
                     anti_alias: true,
                     ..Default::default()
                 },
-                tiny_skia::FillRule::Winding,
+                FillRule::Winding,
             );
         }
     }
@@ -168,7 +171,7 @@ impl Backend for SoftwareBackend<'_> {
     fn free_path(&mut self, _: Self::Path) {}
 
     fn create_image(&mut self, width: u32, height: u32, data: &[u8]) -> Self::Image {
-        let mut image = tiny_skia::Pixmap::new(width, height)?;
+        let mut image = Pixmap::new(width, height)?;
         for (d, &[r, g, b, a]) in image
             .pixels_mut()
             .iter_mut()
@@ -180,12 +183,10 @@ impl Backend for SoftwareBackend<'_> {
     }
 
     fn free_image(&mut self, _: Self::Image) {}
-
-    fn resize(&mut self, _: f32, _: f32) {}
 }
 
 pub struct BorrowedSoftwareRenderer {
-    renderer: Renderer<Option<tiny_skia::Path>, Option<tiny_skia::Pixmap>>,
+    renderer: Renderer<Option<Path>, Option<Pixmap>>,
 }
 
 impl BorrowedSoftwareRenderer {
@@ -201,7 +202,7 @@ impl BorrowedSoftwareRenderer {
         image: &mut [u8],
         [width, height]: [u32; 2],
         stride: u32,
-    ) {
+    ) -> Option<(f32, f32)> {
         let mut pixmap = PixmapMut::from_bytes(image, stride, height).unwrap();
 
         // FIXME: .fill() once it's stable.
@@ -214,12 +215,12 @@ impl BorrowedSoftwareRenderer {
         };
 
         self.renderer
-            .render(&mut backend, (width as _, height as _), &state);
+            .render(&mut backend, (width as _, height as _), &state)
     }
 }
 
 pub struct SoftwareRenderer {
-    renderer: Renderer<Option<tiny_skia::Path>, Option<tiny_skia::Pixmap>>,
+    renderer: Renderer<Option<Path>, Option<Pixmap>>,
     pixmap: Pixmap,
 }
 
@@ -238,7 +239,7 @@ impl SoftwareRenderer {
     /// than rendering on the GPU.
     ///
     /// [`render_anti_aliased`]: fn.render_anti_aliased.html
-    pub fn render(&mut self, state: &LayoutState, [width, height]: [u32; 2]) {
+    pub fn render(&mut self, state: &LayoutState, [width, height]: [u32; 2]) -> Option<(f32, f32)> {
         if width != self.pixmap.width() || height != self.pixmap.height() {
             self.pixmap = Pixmap::new(width, height).unwrap();
         } else {
@@ -253,7 +254,7 @@ impl SoftwareRenderer {
         };
 
         self.renderer
-            .render(&mut backend, (width as _, height as _), &state);
+            .render(&mut backend, (width as _, height as _), &state)
     }
 
     pub fn image_data(&self) -> &[u8] {

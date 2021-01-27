@@ -8,8 +8,8 @@ mod tests_helper;
 use image::Rgba;
 use img_hash::{HasherConfig, ImageHash};
 use livesplit_core::{
-    component,
-    layout::{self, Component, Layout, LayoutDirection, LayoutState},
+    component::{self, timer},
+    layout::{self, Component, ComponentState, Layout, LayoutDirection, LayoutState},
     rendering::software::SoftwareRenderer,
     run::parser::{livesplit, llanfair, wsplit},
     Run, Segment, TimeSpan, Timer, TimingMethod,
@@ -42,20 +42,18 @@ fn default() {
 
     let state = layout.state(&timer.snapshot());
 
-    check(&state, "luCKVRJIOLM=", "default");
+    check(&state, "luiCRRJAPDM=", "default");
 }
 
 #[test]
 fn actual_split_file() {
-    // FIXME: What are we doing about this in regard to crater? These should
-    // likely be in the tests folder.
     let run = lss(run_files::LIVESPLIT_1_0);
     let timer = Timer::new(run).unwrap();
     let mut layout = Layout::default_layout();
 
     check(
         &layout.state(&timer.snapshot()),
-        "jsTEKxBAPLc=",
+        "jMDEIxBAPDM=",
         "actual_split_file",
     );
 }
@@ -69,7 +67,7 @@ fn wsplit() {
     check_dims(
         &layout.state(&timer.snapshot()),
         [250, 300],
-        "jvHd3fnZPuc=",
+        "h/n8/PnZP/c=",
         "wsplit",
     );
 }
@@ -87,15 +85,13 @@ fn all_components() {
 
     let state = layout.state(&timer.snapshot());
 
-    check_dims(&state, [300, 800], "4en3sdHBp/E=", "all_components");
+    check_dims(&state, [300, 800], "4en3ocnJJ/E=", "all_components");
 
-    check_dims(&state, [150, 800], "TXfHZWVJRmc=", "all_components_thin");
+    check_dims(&state, [150, 800], "SXfHSWVpRlc=", "all_components_thin");
 }
 
 #[test]
 fn score_split() {
-    use crate::{component::timer, layout::ComponentState};
-
     let run = lss(run_files::LIVESPLIT_1_0);
     let timer = Timer::new(run).unwrap();
     let mut layout = Layout::default_layout();
@@ -110,7 +106,7 @@ fn score_split() {
     state.components.push(ComponentState::Timer(timer_state));
     state.components.push(prev_seg);
 
-    check_dims(&state, [300, 400], "jODEIwLQJDc=", "score_split");
+    check_dims(&state, [300, 400], "jPDEIwLAJjc=", "score_split");
 }
 
 #[test]
@@ -121,7 +117,7 @@ fn dark_layout() {
 
     check(
         &layout.state(&timer.snapshot()),
-        "T8IAQiBYxYc=",
+        "T8QARSBKwYc=",
         "dark_layout",
     );
 }
@@ -141,7 +137,7 @@ fn subsplits_layout() {
     check_dims(
         &layout.state(&timer.snapshot()),
         [300, 800],
-        "4/P76/Pz/88=",
+        "8/vz+/Pz/+c=",
         "subsplits_layout",
     );
 }
@@ -164,7 +160,7 @@ fn display_two_rows() {
     check_dims(
         &layout.state(&timer.snapshot()),
         [200, 100],
-        "QU0aWM1L9ME=",
+        "Q80aWs1J9sA=",
         "display_two_rows",
     );
 }
@@ -187,7 +183,7 @@ fn single_line_title() {
     check_dims(
         &layout.state(&timer.snapshot()),
         [300, 60],
-        "SDUKwUNqbQA=",
+        "gBJkm0toYIk=",
         "single_line_title",
     );
 }
@@ -221,7 +217,7 @@ fn horizontal() {
     check_dims(
         &layout.state(&timer.snapshot()),
         [1500, 40],
-        "YmJicmJSUmM=",
+        "YnJjcnJSUmM=",
         "horizontal",
     );
 }
@@ -231,9 +227,9 @@ fn get_comparison_tolerance() -> u32 {
     // tolerance that is greater than 0.
     // FIXME: We use SSE as an approximation for the cfg because MMX isn't supported by Rust yet.
     if cfg!(all(target_arch = "x86", not(target_feature = "sse"))) {
-        4
-    } else {
         1
+    } else {
+        0
     }
 }
 
@@ -260,7 +256,7 @@ fn check_dims(state: &LayoutState, dims: [u32; 2], expected_hash_data: &str, nam
     let path = format!(
         "target/renders/{}_{}.png",
         name,
-        calculated_hash_data.replace("/", "$"),
+        calculated_hash_data.replace("/", "-"),
     );
     image.save(&path).ok();
 
@@ -270,9 +266,9 @@ fn check_dims(state: &LayoutState, dims: [u32; 2], expected_hash_data: &str, nam
         let expected_path = format!(
             "target/renders/{}_{}.png",
             name,
-            expected_hash_data.replace("/", "$"),
+            expected_hash_data.replace("/", "-"),
         );
-        if let Ok(expected_image) = image::open(expected_path) {
+        let diff_path = if let Ok(expected_image) = image::open(&expected_path) {
             let mut expected_image = expected_image.to_rgba8();
             for (x, y, Rgba([r, g, b, a])) in expected_image.enumerate_pixels_mut() {
                 if x < image.width() && y < image.height() {
@@ -285,11 +281,24 @@ fn check_dims(state: &LayoutState, dims: [u32; 2], expected_hash_data: &str, nam
             }
             let diff_path = format!("target/renders/diff/{}.png", name);
             expected_image.save(&diff_path).ok();
-        }
+            diff_path
+        } else {
+            String::from("Not found")
+        };
 
         panic!(
-            "Render mismatch for {} expected: {}, actual: {}, distance: {}",
-            name, expected_hash_data, calculated_hash_data, distance
+            "Render mismatch for {}
+expected: {} {}
+actual: {} {}
+diff: {}
+distance: {}",
+            name,
+            expected_hash_data,
+            expected_path,
+            calculated_hash_data,
+            path,
+            diff_path,
+            distance
         );
     }
 }

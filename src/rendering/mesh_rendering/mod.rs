@@ -59,9 +59,6 @@ pub trait Backend {
 
     /// Instructs the backend to free a texture as it is not needed anymore.
     fn free_texture(&mut self, texture: Self::Texture);
-
-    /// Instructs the backend to resize the size of the render target.
-    fn resize(&mut self, width: f32, height: f32);
 }
 
 pub struct FillBuilder(path::Builder);
@@ -199,9 +196,5 @@ impl<T: Backend> super::Backend for T {
 
     fn free_image(&mut self, image: Self::Image) {
         Backend::free_texture(self, image)
-    }
-
-    fn resize(&mut self, width: f32, height: f32) {
-        Backend::resize(self, width, height)
     }
 }
