@@ -121,35 +121,47 @@ fn vertical_padding(height: f32) -> f32 {
     (ICON_MIN_VERTICAL_PADDING * height).min(PADDING)
 }
 
+/// The backend provides a path builder that defines how to build paths that can
+/// be used for the backend.
 pub trait PathBuilder<B: ?Sized> {
+    /// The type of the path to build. This needs to be identical to the type of
+    /// the path used by the backend.
     type Path;
 
-    /// Appends a MoveTo segment.
-    ///
-    /// Start of a contour.
+    /// Moves the cursor to a specific position and starts a new contour.
     fn move_to(&mut self, x: f32, y: f32);
 
-    /// Appends a LineTo segment.
+    /// Adds a line from the previous position to the position specified, while
+    /// also moving the cursor along.
     fn line_to(&mut self, x: f32, y: f32);
 
-    /// Appends a QuadTo segment.
+    /// Adds a quadratic bézier curve from the previous position to the position
+    /// specified, while also moving the cursor along. (x1, y1) specifies the
+    /// control point.
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32);
 
-    /// Appends a CurveTo segment.
+    /// Adds a cubic bézier curve from the previous position to the position
+    /// specified, while also moving the cursor along. (x1, y1) and (x2, y2)
+    /// specify the two control points.
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32);
 
-    /// Appends a ClosePath segment.
-    ///
-    /// End of a contour.
+    /// Closes the current contour. The current position and the initial
+    /// position get connected by a line, forming a continuous loop. Nothing
+    /// if the path is empty or already closed.
     fn close(&mut self);
 
+    /// Finishes building the path.
     fn finish(self, backend: &mut B) -> Self::Path;
 }
 
+/// Specifies the colors to use when filling a path.
 #[derive(Copy, Clone)]
-pub enum Shader {
+pub enum FillShader {
+    /// Use a single color for the whole path.
     SolidColor(Rgba),
+    /// Use a vertical gradient (top, bottom) to fill the path.
     VerticalGradient(Rgba, Rgba),
+    /// Use a horizontal gradient (left, right) to fill the path.
     HorizontalGradient(Rgba, Rgba),
 }
 
@@ -167,9 +179,17 @@ pub trait Backend {
     /// The type the backend uses for textures.
     type Image;
 
+    /// Creates a new fill builder to build a new path that is going to be
+    /// rendered with a fill shader.
     fn fill_builder(&mut self) -> Self::FillBuilder;
+
+    /// Creates a new stroke builder to build a new path that is going to be
+    /// rendered with a stroke shader.
     fn stroke_builder(&mut self, stroke_width: f32) -> Self::StrokeBuilder;
 
+    /// Builds a new filled circle. A default implementation that approximates
+    /// the circle with 4 cubic bézier curves is provided. For more accuracy or
+    /// performance a backend can change the implementation.
     fn build_filled_circle(&mut self, x: f32, y: f32, r: f32) -> Self::Path {
         // Based on https://spencermortensen.com/articles/bezier-circle/
         const C: f64 = 0.551915024494;
@@ -202,7 +222,7 @@ pub trait Backend {
     ///     (0, 1), // Bottom Left
     /// ]
     /// ```
-    fn render_fill_path(&mut self, path: &Self::Path, shader: Shader, transform: Transform);
+    fn render_fill_path(&mut self, path: &Self::Path, shader: FillShader, transform: Transform);
 
     fn render_stroke_path(
         &mut self,
@@ -601,7 +621,7 @@ struct RenderContext<'b, B: Backend> {
 }
 
 impl<B: Backend> RenderContext<'_, B> {
-    fn backend_render_rectangle(&mut self, [x1, y1]: Pos, [x2, y2]: Pos, shader: Shader) {
+    fn backend_render_rectangle(&mut self, [x1, y1]: Pos, [x2, y2]: Pos, shader: FillShader) {
         let transform = self
             .transform
             .pre_translate([x1, y1].into())
@@ -758,7 +778,7 @@ impl<B: Backend> RenderContext<'_, B> {
         text: &str,
         pos: Pos,
         scale: f32,
-        shader: Shader,
+        shader: FillShader,
         max_x: f32,
     ) -> f32 {
         let mut cursor = font::Cursor::new(pos);
@@ -791,7 +811,7 @@ impl<B: Backend> RenderContext<'_, B> {
         max_x: f32,
         pos: Pos,
         scale: f32,
-        shader: Shader,
+        shader: FillShader,
     ) {
         let mut cursor = font::Cursor::new(pos);
 
@@ -814,7 +834,13 @@ impl<B: Backend> RenderContext<'_, B> {
         *self.text_buffer = Some(glyphs.into_buffer());
     }
 
-    fn render_text_right_align(&mut self, text: &str, pos: Pos, scale: f32, shader: Shader) -> f32 {
+    fn render_text_right_align(
+        &mut self,
+        text: &str,
+        pos: Pos,
+        scale: f32,
+        shader: FillShader,
+    ) -> f32 {
         let mut cursor = font::Cursor::new(pos);
 
         let mut buffer = self.text_buffer.take().unwrap_or_default();
@@ -846,7 +872,7 @@ impl<B: Backend> RenderContext<'_, B> {
         pos: Pos,
         scale: f32,
         centered: bool,
-        shader: Shader,
+        shader: FillShader,
     ) {
         if centered {
             self.render_text_centered(text, min_x, max_x, pos, scale, shader);
@@ -855,7 +881,7 @@ impl<B: Backend> RenderContext<'_, B> {
         }
     }
 
-    fn render_numbers(&mut self, text: &str, pos: Pos, scale: f32, shader: Shader) -> f32 {
+    fn render_numbers(&mut self, text: &str, pos: Pos, scale: f32, shader: FillShader) -> f32 {
         let mut cursor = font::Cursor::new(pos);
 
         let mut buffer = self.text_buffer.take().unwrap_or_default();
@@ -879,7 +905,7 @@ impl<B: Backend> RenderContext<'_, B> {
         cursor.x
     }
 
-    fn render_timer(&mut self, text: &str, pos: Pos, scale: f32, shader: Shader) -> f32 {
+    fn render_timer(&mut self, text: &str, pos: Pos, scale: f32, shader: FillShader) -> f32 {
         let mut cursor = font::Cursor::new(pos);
 
         let mut buffer = self.text_buffer.take().unwrap_or_default();
@@ -972,22 +998,22 @@ impl<B: Backend> RenderContext<'_, B> {
     }
 }
 
-fn decode_gradient(gradient: &Gradient) -> Option<Shader> {
+fn decode_gradient(gradient: &Gradient) -> Option<FillShader> {
     Some(match gradient {
         Gradient::Transparent => return None,
         Gradient::Horizontal(left, right) => {
             let left = decode_color(left);
             let right = decode_color(right);
-            Shader::HorizontalGradient(left, right)
+            FillShader::HorizontalGradient(left, right)
         }
         Gradient::Vertical(top, bottom) => {
             let top = decode_color(top);
             let bottom = decode_color(bottom);
-            Shader::VerticalGradient(top, bottom)
+            FillShader::VerticalGradient(top, bottom)
         }
         Gradient::Plain(plain) => {
             let plain = decode_color(plain);
-            Shader::SolidColor(plain)
+            FillShader::SolidColor(plain)
         }
     })
 }
@@ -997,8 +1023,8 @@ fn decode_color(color: &Color) -> [f32; 4] {
     [r, g, b, a]
 }
 
-fn solid(color: &Color) -> Shader {
-    Shader::SolidColor(decode_color(color))
+fn solid(color: &Color) -> FillShader {
+    FillShader::SolidColor(decode_color(color))
 }
 
 fn component_width(component: &ComponentState) -> f32 {

@@ -2,10 +2,10 @@ mod color_font;
 mod glyph_cache;
 
 use self::color_font::ColorTables;
-use super::{solid, Backend, Pos, Shader, Transform};
+use super::{solid, Backend, FillShader, Pos, Transform};
 use crate::settings::{FontStretch, FontStyle, FontWeight};
 use rustybuzz::{Face, Feature, GlyphBuffer, Tag, UnicodeBuffer, Variation};
-use ttf_parser::{GlyphId, OutlineBuilder};
+use ttf_parser::{GlyphId, OutlineBuilder, Tag as ParserTag};
 
 pub use self::glyph_cache::GlyphCache;
 
@@ -14,8 +14,7 @@ use {
     font_kit::{
         family_name::FamilyName,
         handle::Handle,
-        properties::Properties,
-        properties::{Stretch, Style, Weight},
+        properties::{Properties, Stretch, Style, Weight},
         source::SystemSource,
     },
     std::{fs, sync::Arc},
@@ -86,9 +85,9 @@ impl<'fd> Font<'fd> {
         let weight = weight.value();
         let stretch = stretch.percentage();
 
-        face.set_variation(Tag::from_bytes(b"ital"), italic);
-        face.set_variation(Tag::from_bytes(b"wght"), weight);
-        face.set_variation(Tag::from_bytes(b"wdth"), stretch);
+        face.set_variation(ParserTag::from_bytes(b"ital"), italic);
+        face.set_variation(ParserTag::from_bytes(b"wght"), weight);
+        face.set_variation(ParserTag::from_bytes(b"wdth"), stretch);
 
         rb.set_variations(&[
             Variation {
@@ -384,7 +383,7 @@ impl<'f> Glyphs<'f> {
 
 pub fn render<B: Backend>(
     layout: impl IntoIterator<Item = PositionedGlyph>,
-    shader: Shader,
+    shader: FillShader,
     font: &ScaledFont<'_>,
     glyph_cache: &mut GlyphCache<B::Path>,
     transform: &Transform,

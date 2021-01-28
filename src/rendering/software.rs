@@ -2,12 +2,12 @@
 //! is much slower than with a normal GPU, but might be sufficient for
 //! situations where you want to create a screenshot of the layout.
 
-use super::{Backend, Renderer, Rgba, Shader, Transform};
+use super::{Backend, FillShader, Renderer, Rgba, Transform};
 use crate::layout::LayoutState;
 use image::ImageBuffer;
 use tiny_skia::{
     Canvas, Color, FillRule, FilterQuality, GradientStop, LinearGradient, Paint, Path, PathBuilder,
-    Pattern, Pixmap, PixmapMut, Point, SpreadMode, Stroke,
+    Pattern, Pixmap, PixmapMut, Point, Shader, SpreadMode, Stroke,
 };
 
 pub use image::{self, RgbaImage};
@@ -69,13 +69,13 @@ impl Backend for SoftwareBackend<'_> {
         SkiaBuilder(PathBuilder::new())
     }
 
-    fn render_fill_path(&mut self, path: &Self::Path, shader: Shader, transform: Transform) {
+    fn render_fill_path(&mut self, path: &Self::Path, shader: FillShader, transform: Transform) {
         if let Some(path) = path {
             self.canvas.set_transform(convert_transform(transform));
 
             let shader = match shader {
-                Shader::SolidColor(col) => tiny_skia::Shader::SolidColor(convert_color(col)),
-                Shader::VerticalGradient(top, bottom) => {
+                FillShader::SolidColor(col) => Shader::SolidColor(convert_color(col)),
+                FillShader::VerticalGradient(top, bottom) => {
                     let bounds = path.bounds();
                     LinearGradient::new(
                         Point::from_xy(0.0, bounds.top()),
@@ -89,7 +89,7 @@ impl Backend for SoftwareBackend<'_> {
                     )
                     .unwrap()
                 }
-                Shader::HorizontalGradient(left, right) => {
+                FillShader::HorizontalGradient(left, right) => {
                     let bounds = path.bounds();
                     LinearGradient::new(
                         Point::from_xy(bounds.left(), 0.0),
@@ -130,7 +130,7 @@ impl Backend for SoftwareBackend<'_> {
             self.canvas.stroke_path(
                 path,
                 &Paint {
-                    shader: tiny_skia::Shader::SolidColor(convert_color(color)),
+                    shader: Shader::SolidColor(convert_color(color)),
                     anti_alias: true,
                     ..Default::default()
                 },

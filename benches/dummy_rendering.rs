@@ -3,7 +3,7 @@ cfg_if::cfg_if! {
         use criterion::{criterion_group, criterion_main, Criterion};
         use livesplit_core::{
             layout::{self, Layout},
-            rendering::{Backend, PathBuilder, Renderer, Rgba, Shader, Transform},
+            rendering::{Backend, FillShader, PathBuilder, Renderer, Rgba, Transform},
             run::parser::livesplit,
             Run, Segment, TimeSpan, Timer, TimingMethod,
         };
@@ -37,7 +37,7 @@ cfg_if::cfg_if! {
             fn stroke_builder(&mut self, _: f32) -> Self::StrokeBuilder {
                 Dummy
             }
-            fn render_fill_path(&mut self, _: &Self::Path, _: Shader, _: Transform) {}
+            fn render_fill_path(&mut self, _: &Self::Path, _: FillShader, _: Transform) {}
             fn render_stroke_path(&mut self, _: &Self::Path, _: f32, _: Rgba, _: Transform) {}
             fn render_image(&mut self, _: &Self::Image, _: &Self::Path, _: Transform) {}
             fn free_path(&mut self, _: Self::Path) {}

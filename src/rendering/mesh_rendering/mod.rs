@@ -7,7 +7,7 @@ use lyon_tessellation::{
 
 pub use self::mesh::{Mesh, Vertex};
 
-use super::{Rgba, Shader, Transform};
+use super::{FillShader, Rgba, Transform};
 
 /// The rendering backend for the Renderer is abstracted out into the Backend
 /// trait such that the rendering isn't tied to a specific rendering framework.
@@ -163,11 +163,11 @@ impl<T: Backend> super::Backend for T {
         StrokeBuilder(path::Builder::new(), stroke_width)
     }
 
-    fn render_fill_path(&mut self, path: &Self::Path, shader: Shader, transform: Transform) {
+    fn render_fill_path(&mut self, path: &Self::Path, shader: FillShader, transform: Transform) {
         let colors = match shader {
-            Shader::SolidColor(c) => [c; 4],
-            Shader::VerticalGradient(t, b) => [t, t, b, b],
-            Shader::HorizontalGradient(l, r) => [l, r, r, l],
+            FillShader::SolidColor(c) => [c; 4],
+            FillShader::VerticalGradient(t, b) => [t, t, b, b],
+            FillShader::HorizontalGradient(l, r) => [l, r, r, l],
         };
         Backend::render_mesh(self, path, transform, colors, None)
     }
