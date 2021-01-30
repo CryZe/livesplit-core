@@ -72,6 +72,9 @@ mod icon;
 #[cfg(feature = "software-rendering")]
 pub mod software;
 
+#[cfg(feature = "buffer-rendering")]
+pub mod buffer_rendering;
+
 #[cfg(feature = "mesh-rendering")]
 pub mod mesh_rendering;
 
@@ -87,6 +90,7 @@ use alloc::borrow::Cow;
 use core::iter;
 use euclid::{Transform2D, UnknownUnit};
 use rustybuzz::UnicodeBuffer;
+use serde::Serialize;
 
 pub use euclid;
 
@@ -155,7 +159,7 @@ pub trait PathBuilder<B: ?Sized> {
 }
 
 /// Specifies the colors to use when filling a path.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize)]
 pub enum FillShader {
     /// Use a single color for the whole path.
     SolidColor(Rgba),

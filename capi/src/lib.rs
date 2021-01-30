@@ -58,6 +58,7 @@ pub mod separator_component;
 pub mod separator_component_state;
 pub mod setting_value;
 pub mod shared_timer;
+pub mod buffer_renderer;
 pub mod software_renderer;
 pub mod splits_component;
 pub mod splits_component_state;
