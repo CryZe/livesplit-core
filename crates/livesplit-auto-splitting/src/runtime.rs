@@ -1,11 +1,11 @@
-use crate::{process::Process, timer::Timer};
+use crate::{process::Process, signature::Signature, timer::Timer};
 
 use log::info;
 use slotmap::{Key, KeyData, SlotMap};
 use snafu::{ResultExt, Snafu};
 use std::{
     path::Path,
-    result, str,
+    str,
     time::{Duration, Instant},
 };
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, SystemExt};
@@ -309,8 +309,7 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
              name_ptr: u32,
              name_len: u32,
              value_ptr: u32,
-             value_len: u32|
-             -> result::Result<(), Trap> {
+             value_len: u32| {
                 let (memory, context) = memory_and_context(&mut caller);
                 let name = read_str(memory, name_ptr, name_len)?;
                 let value = read_str(memory, value_ptr, value_len)?;
@@ -355,10 +354,7 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
         .func_wrap("env", "process_is_open", {
             |mut caller: Caller<'_, Context<T>>, process: u64| {
                 let ctx = caller.data_mut();
-                let proc = ctx
-                    .processes
-                    .get(ProcessKey::from(KeyData::from_ffi(process as u64)))
-                    .ok_or_else(|| Trap::new(format!("Invalid process handle: {process}")))?;
+                let proc = get_process(&mut ctx.processes, process)?;
                 Ok(proc.is_open(&mut ctx.process_list) as u32)
             }
         })
@@ -369,10 +365,7 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
             |mut caller: Caller<'_, Context<T>>, process: u64, ptr: u32, len: u32| {
                 let (memory, context) = memory_and_context(&mut caller);
                 let module_name = read_str(memory, ptr, len)?;
-                Ok(context
-                    .processes
-                    .get_mut(ProcessKey::from(KeyData::from_ffi(process as u64)))
-                    .ok_or_else(|| Trap::new(format!("Invalid process handle: {process}")))?
+                Ok(get_process(&mut context.processes, process)?
                     .module_address(module_name)
                     .unwrap_or_default())
             }
@@ -387,18 +380,42 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
              buf_ptr: u32,
              buf_len: u32| {
                 let (memory, context) = memory_and_context(&mut caller);
-                Ok(context
-                    .processes
-                    .get(ProcessKey::from(KeyData::from_ffi(process as u64)))
-                    .ok_or_else(|| Trap::new(format!("Invalid process handle: {process}")))?
+                Ok(get_process(&mut context.processes, process)?
                     .read_mem(address, read_slice_mut(memory, buf_ptr, buf_len)?)
                     .is_ok() as u32)
             }
         })
         .context(LinkFunction {
             name: "process_read",
+        })?
+        .func_wrap("env", "process_scan_signature", {
+            |mut caller: Caller<'_, Context<T>>,
+             process: u64,
+             signature_ptr: u32,
+             signature_len: u32| {
+                let (memory, context) = memory_and_context(&mut caller);
+                let signature = read_str(memory, dbg!(signature_ptr), dbg!(signature_len))?;
+                let signature = Signature::new(dbg!(signature));
+                let process = get_process(&mut context.processes, process)?;
+                Ok(process
+                    .scan_signature(&signature)
+                    .unwrap_or_default()
+                    .unwrap_or_default())
+            }
+        })
+        .context(LinkFunction {
+            name: "process_scan_signature",
         })?;
     Ok(())
+}
+
+fn get_process(
+    processes: &mut SlotMap<ProcessKey, Process>,
+    process: u64,
+) -> Result<&mut Process, Trap> {
+    processes
+        .get_mut(ProcessKey::from(KeyData::from_ffi(process as u64)))
+        .ok_or_else(|| Trap::new(format!("Invalid process handle: {process}")))
 }
 
 fn memory_and_context<'a, T: Timer>(

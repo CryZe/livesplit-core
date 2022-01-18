@@ -125,6 +125,7 @@
 mod process;
 mod runtime;
 mod timer;
+mod signature;
 
 pub use runtime::{CreationError, InterruptHandle, RunError, Runtime};
 pub use time;

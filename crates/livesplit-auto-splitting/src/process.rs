@@ -8,7 +8,7 @@ use read_process_memory::{CopyAddress, ProcessHandle};
 use snafu::{OptionExt, ResultExt, Snafu};
 use sysinfo::{self, PidExt, ProcessExt};
 
-use crate::runtime::ProcessList;
+use crate::{runtime::ProcessList, signature::Signature};
 
 #[derive(Debug, Snafu)]
 #[snafu(context(suffix(false)))]
@@ -72,17 +72,7 @@ impl Process {
     }
 
     pub fn module_address(&mut self, module: &str) -> Result<Address, ModuleError> {
-        let now = Instant::now();
-        if now - self.last_check >= Duration::from_secs(1) {
-            self.modules = match proc_maps::get_process_maps(self.pid) {
-                Ok(m) => m,
-                Err(source) => {
-                    self.modules.clear();
-                    return Err(ModuleError::ListModules { source });
-                }
-            };
-            self.last_check = now;
-        }
+        self.refresh_modules().context(ListModules)?;
         self.modules
             .iter()
             .find(|m| m.filename().map_or(false, |f| f.ends_with(module)))
@@ -90,7 +80,41 @@ impl Process {
             .map(|m| m.start() as u64)
     }
 
+    fn refresh_modules(&mut self) -> Result<(), io::Error> {
+        let now = Instant::now();
+        if now - self.last_check >= Duration::from_secs(1) {
+            self.modules = match proc_maps::get_process_maps(self.pid) {
+                Ok(m) => m,
+                Err(source) => {
+                    self.modules.clear();
+                    return Err(source);
+                }
+            };
+            self.last_check = now;
+        }
+        Ok(())
+    }
+
     pub fn read_mem(&self, address: Address, buf: &mut [u8]) -> io::Result<()> {
         self.handle.copy_address(address as usize, buf)
+    }
+
+    pub fn scan_signature(&mut self, signature: &Signature) -> io::Result<Option<Address>> {
+        self.refresh_modules()?;
+        let mut vec = Vec::new();
+        for module in &self.modules {
+            let (addr, len) = (module.start(), module.size());
+            eprintln!("{addr:016x?}, {len}");
+            if len > vec.len() {
+                vec.resize(len, 0);
+            }
+            let buf = &mut vec[..len];
+            if self.handle.copy_address(addr, buf).is_ok() {
+                if let Some(offset) = signature.scan(buf) {
+                    return Ok(Some(addr as Address + offset as Address));
+                }
+            }
+        }
+        Ok(None)
     }
 }
