@@ -1,6 +1,9 @@
-pub struct Signature {
-    bytes: Vec<(u8, bool)>,
-    skip_offsets: [usize; 256],
+pub enum Signature {
+    Simple(Vec<u8>),
+    Complex {
+        needle: Vec<(u8, bool)>,
+        skip_offsets: [usize; 256],
+    },
 }
 
 impl Signature {
@@ -12,57 +15,77 @@ impl Signature {
             b'?' => Some(0x10),
             _ => None,
         });
-        let mut bytes = Vec::new();
 
-        while let (Some(a), Some(b)) = (bytes_iter.next(), bytes_iter.next()) {
-            let sig_byte = (a << 4) | b;
-            let is_question_marks = a == 0x10 && b == 0x10;
-            bytes.push((sig_byte, is_question_marks));
-        }
+        if memchr::memchr(b'?', signature.as_bytes()).is_some() {
+            let mut needle = Vec::new();
 
-        let mut skip_offsets = [0; 256];
-
-        let mut unknown = 0;
-        let end = bytes.len() - 1;
-        for (i, &(byte, mask)) in bytes.iter().enumerate().take(end) {
-            if !mask {
-                skip_offsets[byte as usize] = end - i;
-            } else {
-                unknown = end - i;
+            while let (Some(a), Some(b)) = (bytes_iter.next(), bytes_iter.next()) {
+                let sig_byte = (a << 4) | b;
+                let is_question_marks = a == 0x10 && b == 0x10;
+                needle.push((sig_byte, is_question_marks));
             }
-        }
 
-        if unknown == 0 {
-            unknown = bytes.len();
-        }
+            let mut skip_offsets = [0; 256];
 
-        for offset in &mut skip_offsets[..] {
-            if unknown < *offset || *offset == 0 {
-                *offset = unknown;
+            let mut unknown = 0;
+            let end = needle.len() - 1;
+            for (i, &(byte, mask)) in needle.iter().enumerate().take(end) {
+                if !mask {
+                    skip_offsets[byte as usize] = end - i;
+                } else {
+                    unknown = end - i;
+                }
             }
-        }
 
-        Self {
-            bytes,
-            skip_offsets,
+            if unknown == 0 {
+                unknown = needle.len();
+            }
+
+            for offset in &mut skip_offsets[..] {
+                if unknown < *offset || *offset == 0 {
+                    *offset = unknown;
+                }
+            }
+
+            Self::Complex {
+                needle,
+                skip_offsets,
+            }
+        } else {
+            let mut needle = Vec::new();
+
+            while let (Some(a), Some(b)) = (bytes_iter.next(), bytes_iter.next()) {
+                let sig_byte = (a << 4) | b;
+                needle.push(sig_byte);
+            }
+
+            Self::Simple(needle)
         }
     }
 
-    pub fn scan(&self, buf: &[u8]) -> Option<usize> {
-        let mut current = 0;
-        let end = self.bytes.len() - 1;
-        while current <= buf.len() - self.bytes.len() {
-            let rem = &buf[current..];
-            if rem
-                .iter()
-                .zip(&self.bytes)
-                .all(|(&buf, &(search, mask))| buf == search || mask)
-            {
-                return Some(current);
+    pub fn scan(&self, haystack: &[u8]) -> Option<usize> {
+        match self {
+            Signature::Simple(needle) => memchr::memmem::find(haystack, needle),
+            Signature::Complex {
+                needle,
+                skip_offsets,
+            } => {
+                let mut current = 0;
+                let end = needle.len() - 1;
+                while current <= haystack.len() - needle.len() {
+                    let rem = &haystack[current..];
+                    if rem
+                        .iter()
+                        .zip(needle)
+                        .all(|(&buf, &(search, mask))| buf == search || mask)
+                    {
+                        return Some(current);
+                    }
+                    let offset = skip_offsets[rem[end] as usize];
+                    current += offset;
+                }
+                None
             }
-            let offset = self.skip_offsets[rem[end] as usize];
-            current += offset;
         }
-        None
     }
 }
