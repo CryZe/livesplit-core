@@ -1,3 +1,4 @@
+#[allow(clippy::large_enum_variant)]
 pub enum Signature {
     Simple(Vec<u8>),
     Complex {

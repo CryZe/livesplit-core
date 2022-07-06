@@ -134,7 +134,7 @@ impl Process {
         let (regions, handle) = self.iter_signature_regions()?;
         let mut vec = Vec::new();
         for [addr, len] in regions {
-            eprintln!("{addr:016x?}, {len}");
+            // eprintln!("{addr:016x?}, {len}");
             if len > vec.len() {
                 vec.resize(len, 0);
             }

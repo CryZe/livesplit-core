@@ -37,6 +37,9 @@
 //! pub struct ProcessId(NonZeroU64);
 //!
 //! #[repr(transparent)]
+//! pub struct SignatureId(NonZeroU64);
+//!
+//! #[repr(transparent)]
 //! pub struct TimerState(u32);
 //!
 //! impl TimerState {
@@ -99,6 +102,23 @@
 //!         process: ProcessId,
 //!         name_ptr: *const u8,
 //!         name_len: usize,
+//!     ) -> Option<NonZeroAddress>;
+//!
+//!     /// Creates a new signature that allows scanning for the given pattern
+//!     /// description. Such a description is a string that describes the
+//!     /// pattern as hexadecimal bytes. Bytes that are unknown are specified
+//!     /// as two question marks. A typical pattern might look like this:
+//!     /// "89 AB CD EF ?? ?? ?? ?? 00 12".
+//!     pub fn signature_new(
+//!         description_ptr: *const u8,
+//!         description_len: usize,
+//!     ) -> Option<SignatureId>;
+//!     /// Frees the signature.
+//!     pub fn signature_free(signature: SignatureId);
+//!     // Scan a process for the address that matches the signature.
+//!     pub fn signature_scan_process(
+//!         signature: SignatureId,
+//!         process: ProcessId,
 //!     ) -> Option<NonZeroAddress>;
 //!
 //!     /// Sets the tick rate of the runtime. This influences the amount of

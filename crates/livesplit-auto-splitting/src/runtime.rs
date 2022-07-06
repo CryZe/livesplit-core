@@ -79,14 +79,16 @@ pub enum RunError {
 
 slotmap::new_key_type! {
     struct ProcessKey;
+    struct SignatureKey;
 }
 
 pub struct Context<T: Timer> {
     tick_rate: Duration,
-    processes: SlotMap<ProcessKey, Process>,
     timer: T,
     memory: Option<Memory>,
     process_list: ProcessList,
+    processes: SlotMap<ProcessKey, Process>,
+    signatures: SlotMap<SignatureKey, Signature>,
     #[cfg(feature = "unstable")]
     wasi: WasiCtx,
 }
@@ -161,11 +163,12 @@ impl<T: Timer> Runtime<T> {
         let mut store = Store::new(
             &engine,
             Context {
-                processes: SlotMap::with_key(),
                 tick_rate: Duration::from_secs(1) / 120,
                 timer,
                 memory: None,
                 process_list: ProcessList::new(),
+                processes: SlotMap::with_key(),
+                signatures: SlotMap::with_key(),
                 #[cfg(feature = "unstable")]
                 wasi: WasiCtxBuilder::new().build(),
             },
@@ -342,7 +345,7 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
                 caller
                     .data_mut()
                     .processes
-                    .remove(ProcessKey::from(KeyData::from_ffi(process as u64)))
+                    .remove(ProcessKey::from(KeyData::from_ffi(process)))
                     .ok_or_else(|| Trap::new(format!("Invalid process handle {process}")))?;
                 info!(target: "Auto Splitter", "Detached from a process.");
                 Ok(())
@@ -388,23 +391,43 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
         .context(LinkFunction {
             name: "process_read",
         })?
-        .func_wrap("env", "process_scan_signature", {
-            |mut caller: Caller<'_, Context<T>>,
-             process: u64,
-             signature_ptr: u32,
-             signature_len: u32| {
+        .func_wrap("env", "signature_new", {
+            |mut caller: Caller<'_, Context<T>>, description_ptr: u32, description_len: u32| {
                 let (memory, context) = memory_and_context(&mut caller);
-                let signature = read_str(memory, dbg!(signature_ptr), dbg!(signature_len))?;
-                let signature = Signature::new(dbg!(signature));
+                let description = read_str(memory, description_ptr, description_len)?;
+                let signature = Signature::new(description);
+                Ok(context.signatures.insert(signature).data().as_ffi())
+            }
+        })
+        .context(LinkFunction {
+            name: "signature_new",
+        })?
+        .func_wrap("env", "signature_free", {
+            |mut caller: Caller<'_, Context<T>>, signature: u64| {
+                caller
+                    .data_mut()
+                    .signatures
+                    .remove(SignatureKey::from(KeyData::from_ffi(signature)))
+                    .ok_or_else(|| Trap::new(format!("Invalid signature handle {signature}")))?;
+                Ok(())
+            }
+        })
+        .context(LinkFunction {
+            name: "signature_free",
+        })?
+        .func_wrap("env", "signature_scan_process", {
+            |mut caller: Caller<'_, Context<T>>, signature: u64, process: u64| {
+                let (_, context) = memory_and_context(&mut caller);
+                let signature = get_signature(&mut context.signatures, signature)?;
                 let process = get_process(&mut context.processes, process)?;
                 Ok(process
-                    .scan_signature(&signature)
+                    .scan_signature(signature)
                     .unwrap_or_default()
                     .unwrap_or_default())
             }
         })
         .context(LinkFunction {
-            name: "process_scan_signature",
+            name: "signature_scan_process",
         })?;
     Ok(())
 }
@@ -416,6 +439,15 @@ fn get_process(
     processes
         .get_mut(ProcessKey::from(KeyData::from_ffi(process as u64)))
         .ok_or_else(|| Trap::new(format!("Invalid process handle: {process}")))
+}
+
+fn get_signature(
+    signatures: &mut SlotMap<SignatureKey, Signature>,
+    signature: u64,
+) -> Result<&mut Signature, Trap> {
+    signatures
+        .get_mut(SignatureKey::from(KeyData::from_ffi(signature as u64)))
+        .ok_or_else(|| Trap::new(format!("Invalid signature handle: {signature}")))
 }
 
 fn memory_and_context<'a, T: Timer>(
