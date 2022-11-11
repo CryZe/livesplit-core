@@ -1,8 +1,9 @@
 #[allow(clippy::large_enum_variant)]
+#[derive(Debug)]
 pub enum Signature {
     Simple(Vec<u8>),
     Complex {
-        needle: Vec<(u8, bool)>,
+        needle: Vec<(u8, u8)>,
         skip_offsets: [usize; 256],
     },
 }
@@ -21,9 +22,9 @@ impl Signature {
             let mut needle = Vec::new();
 
             while let (Some(a), Some(b)) = (bytes_iter.next(), bytes_iter.next()) {
-                let sig_byte = (a << 4) | b;
-                let is_question_marks = a == 0x10 && b == 0x10;
-                needle.push((sig_byte, is_question_marks));
+                let sig_byte = (a << 4) | (b & 0x0F);
+                let mask = ((a != 0x10) as u8 * 0xF0) | ((b != 0x10) as u8 * 0x0F);
+                needle.push((sig_byte & mask, mask));
             }
 
             let mut skip_offsets = [0; 256];
@@ -31,7 +32,7 @@ impl Signature {
             let mut unknown = 0;
             let end = needle.len() - 1;
             for (i, &(byte, mask)) in needle.iter().enumerate().take(end) {
-                if !mask {
+                if mask == 0xFF {
                     skip_offsets[byte as usize] = end - i;
                 } else {
                     unknown = end - i;
@@ -78,7 +79,7 @@ impl Signature {
                     if rem
                         .iter()
                         .zip(needle)
-                        .all(|(&buf, &(search, mask))| buf == search || mask)
+                        .all(|(&buf, &(search, mask))| buf & mask == search)
                     {
                         return Some(current);
                     }
@@ -89,4 +90,13 @@ impl Signature {
             }
         }
     }
+}
+
+#[test]
+fn foo() {
+    Signature::new("C?");
+    println!();
+    let sig = Signature::new("48 83 3C ?? 00 75 ?? 8B C? E8");
+    dbg!(&sig);
+    sig.scan(&[0x48, 0x83, 0x3C, 0x03, 0x00, 0x75, 0x1B, 0x8B, 0xCF, 0xE8]);
 }

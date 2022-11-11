@@ -376,6 +376,18 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
         .context(LinkFunction {
             name: "process_get_module_address",
         })?
+        .func_wrap("env", "process_get_module_size", {
+            |mut caller: Caller<'_, Context<T>>, process: u64, ptr: u32, len: u32| {
+                let (memory, context) = memory_and_context(&mut caller);
+                let module_name = read_str(memory, ptr, len)?;
+                Ok(get_process(&mut context.processes, process)?
+                    .module_size(module_name)
+                    .unwrap_or_default())
+            }
+        })
+        .context(LinkFunction {
+            name: "process_get_module_size",
+        })?
         .func_wrap("env", "process_read", {
             |mut caller: Caller<'_, Context<T>>,
              process: u64,
@@ -427,7 +439,25 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
             }
         })
         .context(LinkFunction {
-            name: "signature_scan_process",
+            name: "signature_scan_process_range",
+        })?
+        .func_wrap("env", "signature_scan_process_range", {
+            |mut caller: Caller<'_, Context<T>>,
+             signature: u64,
+             process: u64,
+             address: u64,
+             len: u64| {
+                let (_, context) = memory_and_context(&mut caller);
+                let signature = get_signature(&mut context.signatures, signature)?;
+                let process = get_process(&mut context.processes, process)?;
+                Ok(process
+                    .scan_signature_range(signature, address, len)
+                    .unwrap_or_default()
+                    .unwrap_or_default())
+            }
+        })
+        .context(LinkFunction {
+            name: "signature_scan_process_range",
         })?;
     Ok(())
 }

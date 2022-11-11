@@ -111,6 +111,18 @@ impl Process {
             .map(|m| m.start() as u64)
     }
 
+    pub fn module_size(&mut self, module: &str) -> Result<u64, ModuleError> {
+        self.refresh_modules().context(ListModules)?;
+        // TODO: If it doesn't exist, should that be an error? If so how is an
+        // error signified with this API, we usually use 0.
+        Ok(self
+            .modules
+            .iter()
+            .filter(|m| m.filename().map_or(false, |f| f.ends_with(module)))
+            .map(|m| m.size() as u64)
+            .sum())
+    }
+
     fn refresh_modules(&mut self) -> Result<(), io::Error> {
         let now = Instant::now();
         if now - self.last_check >= Duration::from_secs(1) {
@@ -142,6 +154,36 @@ impl Process {
             if handle.copy_address(addr, buf).is_ok() {
                 if let Some(offset) = signature.scan(buf) {
                     return Ok(Some(addr as Address + offset as Address));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    pub fn scan_signature_range(
+        &mut self,
+        signature: &mut Signature,
+        filter_address: u64,
+        filter_len: u64,
+    ) -> io::Result<Option<Address>> {
+        // TODO: u64 -> usize casts wonky, what if usize is 32-bit?
+        let filter_start = filter_address as usize;
+        // TODO: Don't wrap, do checked_add
+        let filter_end = filter_start + filter_len as usize;
+        let (regions, handle) = self.iter_signature_regions()?;
+        let mut vec = Vec::new();
+        for [addr, len] in regions {
+            let start = filter_start.max(addr);
+            let end = filter_end.min(addr + len);
+            let Some(len) = end.checked_sub(start) else { continue };
+            // eprintln!("{addr:016x?}, {len}");
+            if len > vec.len() {
+                vec.resize(len, 0);
+            }
+            let buf = &mut vec[..len];
+            if handle.copy_address(start, buf).is_ok() {
+                if let Some(offset) = signature.scan(buf) {
+                    return Ok(Some(start as Address + offset as Address));
                 }
             }
         }
