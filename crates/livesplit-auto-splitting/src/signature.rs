@@ -1,9 +1,9 @@
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum Signature {
-    Simple(Vec<u8>),
+    Simple(Box<[u8]>),
     Complex {
-        needle: Vec<(u8, u8)>,
+        needle: Box<[(u8, u8)]>,
         skip_offsets: [usize; 256],
     },
 }
@@ -50,7 +50,7 @@ impl Signature {
             }
 
             Self::Complex {
-                needle,
+                needle: needle.into_boxed_slice(),
                 skip_offsets,
             }
         } else {
@@ -61,7 +61,7 @@ impl Signature {
                 needle.push(sig_byte);
             }
 
-            Self::Simple(needle)
+            Self::Simple(needle.into_boxed_slice())
         }
     }
 
@@ -78,7 +78,7 @@ impl Signature {
                     let rem = &haystack[current..];
                     if rem
                         .iter()
-                        .zip(needle)
+                        .zip(needle.iter())
                         .all(|(&buf, &(search, mask))| buf & mask == search)
                     {
                         return Some(current);

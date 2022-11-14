@@ -1,11 +1,21 @@
-use crate::{process::Process, signature::Signature, timer::Timer};
+use crate::{
+    process::{Address, Process},
+    signature::Signature,
+    timer::Timer,
+};
 
 use log::info;
 use slotmap::{Key, KeyData, SlotMap};
 use snafu::{ResultExt, Snafu};
 use std::{
+    mem::ManuallyDrop,
     path::Path,
     str,
+    sync::{
+        mpsc::{channel, Sender},
+        Arc, RwLock, Weak,
+    },
+    thread,
     time::{Duration, Instant},
 };
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, SystemExt};
@@ -77,9 +87,46 @@ pub enum RunError {
     },
 }
 
+#[derive(Clone)]
+enum JobResult {
+    ScanSignature(Option<Address>),
+}
+
+struct Job {
+    result: RwLock<Option<JobResult>>,
+}
+impl Job {
+    const fn new() -> Self {
+        Self {
+            result: RwLock::new(None),
+        }
+    }
+
+    fn is_done(&self) -> bool {
+        let Ok(guard) = self.result.read() else { return false };
+        guard.is_some()
+    }
+
+    fn result(&self) -> Option<JobResult> {
+        let Ok(guard) = self.result.read() else { return None };
+        guard.clone()
+    }
+}
+
+struct JobRequest {
+    job: Weak<Job>,
+    kind: JobKind,
+}
+
+enum JobKind {
+    ScanSignature(Weak<Process>, Weak<Signature>),
+    ScanSignatureRange(Weak<Process>, Weak<Signature>, Address, u64),
+}
+
 slotmap::new_key_type! {
     struct ProcessKey;
     struct SignatureKey;
+    struct JobKey;
 }
 
 pub struct Context<T: Timer> {
@@ -87,10 +134,22 @@ pub struct Context<T: Timer> {
     timer: T,
     memory: Option<Memory>,
     process_list: ProcessList,
-    processes: SlotMap<ProcessKey, Process>,
-    signatures: SlotMap<SignatureKey, Signature>,
+    processes: SlotMap<ProcessKey, Arc<Process>>,
+    signatures: SlotMap<SignatureKey, Arc<Signature>>,
+    jobs: SlotMap<JobKey, Arc<Job>>,
+    job_starter: ManuallyDrop<Sender<JobRequest>>,
+    join_handle: ManuallyDrop<thread::JoinHandle<()>>,
     #[cfg(feature = "unstable")]
     wasi: WasiCtx,
+}
+
+impl<T: Timer> Drop for Context<T> {
+    fn drop(&mut self) {
+        unsafe {
+            ManuallyDrop::drop(&mut self.job_starter);
+            ManuallyDrop::take(&mut self.join_handle).join();
+        }
+    }
 }
 
 /// A threadsafe handle used to interrupt the execution of the script.
@@ -160,6 +219,38 @@ impl<T: Timer> Runtime<T> {
 
         let module = Module::from_file(&engine, path).context(ModuleLoading)?;
 
+        let (job_starter, receiver) = channel::<JobRequest>();
+        let join_handle = thread::spawn(move || {
+            while let Ok(request) = receiver.recv() {
+                if let Some(job) = request.job.upgrade() {
+                    match request.kind {
+                        JobKind::ScanSignature(process, signature) => {
+                            if let Some(process) = process.upgrade() {
+                                if let Some(signature) = signature.upgrade() {
+                                    let res = process.scan_signature(&signature);
+                                    if let Ok(mut guard) = job.result.write() {
+                                        // TODO: If process or signature got
+                                        // deallocated we should set an error.
+                                        *guard = Some(JobResult::ScanSignature(res.ok().flatten()));
+                                    }
+                                }
+                            }
+                        }
+                        JobKind::ScanSignatureRange(process, signature, addr, len) => {
+                            if let Some(process) = process.upgrade() {
+                                if let Some(signature) = signature.upgrade() {
+                                    let res = process.scan_signature_range(&signature, addr, len);
+                                    if let Ok(mut guard) = job.result.write() {
+                                        *guard = Some(JobResult::ScanSignature(res.ok().flatten()));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
         let mut store = Store::new(
             &engine,
             Context {
@@ -169,6 +260,9 @@ impl<T: Timer> Runtime<T> {
                 process_list: ProcessList::new(),
                 processes: SlotMap::with_key(),
                 signatures: SlotMap::with_key(),
+                jobs: SlotMap::with_key(),
+                job_starter: ManuallyDrop::new(job_starter),
+                join_handle: ManuallyDrop::new(join_handle),
                 #[cfg(feature = "unstable")]
                 wasi: WasiCtxBuilder::new().build(),
             },
@@ -330,7 +424,7 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
                 Ok(
                     if let Ok(p) = Process::with_name(process_name, &mut context.process_list) {
                         info!(target: "Auto Splitter", "Attached to a new process: {process_name}");
-                        context.processes.insert(p).data().as_ffi()
+                        context.processes.insert(Arc::new(p)).data().as_ffi()
                     } else {
                         0
                     },
@@ -357,7 +451,7 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
         .func_wrap("env", "process_is_open", {
             |mut caller: Caller<'_, Context<T>>, process: u64| {
                 let ctx = caller.data_mut();
-                let proc = get_process(&mut ctx.processes, process)?;
+                let proc = get_process(&ctx.processes, process)?;
                 Ok(proc.is_open(&mut ctx.process_list) as u32)
             }
         })
@@ -368,7 +462,7 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
             |mut caller: Caller<'_, Context<T>>, process: u64, ptr: u32, len: u32| {
                 let (memory, context) = memory_and_context(&mut caller);
                 let module_name = read_str(memory, ptr, len)?;
-                Ok(get_process(&mut context.processes, process)?
+                Ok(get_process(&context.processes, process)?
                     .module_address(module_name)
                     .unwrap_or_default())
             }
@@ -380,7 +474,7 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
             |mut caller: Caller<'_, Context<T>>, process: u64, ptr: u32, len: u32| {
                 let (memory, context) = memory_and_context(&mut caller);
                 let module_name = read_str(memory, ptr, len)?;
-                Ok(get_process(&mut context.processes, process)?
+                Ok(get_process(&context.processes, process)?
                     .module_size(module_name)
                     .unwrap_or_default())
             }
@@ -395,7 +489,7 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
              buf_ptr: u32,
              buf_len: u32| {
                 let (memory, context) = memory_and_context(&mut caller);
-                Ok(get_process(&mut context.processes, process)?
+                Ok(get_process(&context.processes, process)?
                     .read_mem(address, read_slice_mut(memory, buf_ptr, buf_len)?)
                     .is_ok() as u32)
             }
@@ -408,7 +502,11 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
                 let (memory, context) = memory_and_context(&mut caller);
                 let description = read_str(memory, description_ptr, description_len)?;
                 let signature = Signature::new(description);
-                Ok(context.signatures.insert(signature).data().as_ffi())
+                Ok(context
+                    .signatures
+                    .insert(Arc::new(signature))
+                    .data()
+                    .as_ffi())
             }
         })
         .context(LinkFunction {
@@ -430,12 +528,20 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
         .func_wrap("env", "signature_scan_process", {
             |mut caller: Caller<'_, Context<T>>, signature: u64, process: u64| {
                 let (_, context) = memory_and_context(&mut caller);
-                let signature = get_signature(&mut context.signatures, signature)?;
-                let process = get_process(&mut context.processes, process)?;
-                Ok(process
-                    .scan_signature(signature)
-                    .unwrap_or_default()
-                    .unwrap_or_default())
+                let signature = get_signature(&context.signatures, signature)?;
+                let process = get_process(&context.processes, process)?;
+                let job = Arc::new(Job::new());
+                context
+                    .job_starter
+                    .send(JobRequest {
+                        job: Arc::downgrade(&job),
+                        kind: JobKind::ScanSignature(
+                            Arc::downgrade(process),
+                            Arc::downgrade(signature),
+                        ),
+                    })
+                    .map_err(|_| Trap::new("Failed to send job request"))?;
+                Ok(context.jobs.insert(job).data().as_ffi())
             }
         })
         .context(LinkFunction {
@@ -448,36 +554,86 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
              address: u64,
              len: u64| {
                 let (_, context) = memory_and_context(&mut caller);
-                let signature = get_signature(&mut context.signatures, signature)?;
-                let process = get_process(&mut context.processes, process)?;
-                Ok(process
-                    .scan_signature_range(signature, address, len)
-                    .unwrap_or_default()
-                    .unwrap_or_default())
+                let signature = get_signature(&context.signatures, signature)?;
+                let process = get_process(&context.processes, process)?;
+                let job = Arc::new(Job::new());
+                context
+                    .job_starter
+                    .send(JobRequest {
+                        job: Arc::downgrade(&job),
+                        kind: JobKind::ScanSignatureRange(
+                            Arc::downgrade(process),
+                            Arc::downgrade(signature),
+                            address,
+                            len,
+                        ),
+                    })
+                    .map_err(|_| Trap::new("Failed to send job request"))?;
+                Ok(context.jobs.insert(job).data().as_ffi())
             }
         })
         .context(LinkFunction {
             name: "signature_scan_process_range",
+        })?
+        .func_wrap("env", "job_free", {
+            |mut caller: Caller<'_, Context<T>>, job: u64| {
+                caller
+                    .data_mut()
+                    .jobs
+                    .remove(JobKey::from(KeyData::from_ffi(job)))
+                    .ok_or_else(|| Trap::new(format!("Invalid job handle {job}")))?;
+                Ok(())
+            }
+        })
+        .context(LinkFunction { name: "job_free" })?
+        .func_wrap("env", "job_is_done", {
+            |mut caller: Caller<'_, Context<T>>, job: u64| {
+                let (_, context) = memory_and_context(&mut caller);
+                let job = get_job(&context.jobs, job)?;
+                Ok(job.is_done() as u32)
+            }
+        })
+        .context(LinkFunction {
+            name: "job_is_done",
+        })?
+        .func_wrap("env", "signature_job_get_result", {
+            |mut caller: Caller<'_, Context<T>>, job: u64| {
+                let (_, context) = memory_and_context(&mut caller);
+                let job = get_job(&context.jobs, job)?;
+                let Some(result) = job.result() else {
+                    return Err(Trap::new("Job is not done yet"));
+                };
+                let JobResult::ScanSignature(result) = result;
+                Ok(result.unwrap_or_default())
+            }
+        })
+        .context(LinkFunction {
+            name: "signature_job_get_result",
         })?;
     Ok(())
 }
 
 fn get_process(
-    processes: &mut SlotMap<ProcessKey, Process>,
+    processes: &SlotMap<ProcessKey, Arc<Process>>,
     process: u64,
-) -> Result<&mut Process, Trap> {
+) -> Result<&Arc<Process>, Trap> {
     processes
-        .get_mut(ProcessKey::from(KeyData::from_ffi(process as u64)))
+        .get(ProcessKey::from(KeyData::from_ffi(process as u64)))
         .ok_or_else(|| Trap::new(format!("Invalid process handle: {process}")))
 }
 
 fn get_signature(
-    signatures: &mut SlotMap<SignatureKey, Signature>,
+    signatures: &SlotMap<SignatureKey, Arc<Signature>>,
     signature: u64,
-) -> Result<&mut Signature, Trap> {
+) -> Result<&Arc<Signature>, Trap> {
     signatures
-        .get_mut(SignatureKey::from(KeyData::from_ffi(signature as u64)))
+        .get(SignatureKey::from(KeyData::from_ffi(signature as u64)))
         .ok_or_else(|| Trap::new(format!("Invalid signature handle: {signature}")))
+}
+
+fn get_job(jobs: &SlotMap<JobKey, Arc<Job>>, job: u64) -> Result<&Arc<Job>, Trap> {
+    jobs.get(JobKey::from(KeyData::from_ffi(job as u64)))
+        .ok_or_else(|| Trap::new(format!("Invalid job handle: {job}")))
 }
 
 fn memory_and_context<'a, T: Timer>(

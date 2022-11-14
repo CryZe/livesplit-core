@@ -1,5 +1,6 @@
 use std::{
     io,
+    sync::RwLock,
     time::{Duration, Instant},
 };
 
@@ -20,6 +21,7 @@ pub enum OpenError {
 #[derive(Debug, Snafu)]
 #[snafu(context(suffix(false)))]
 pub enum ModuleError {
+    JobThreadDied,
     ModuleDoesntExist,
     ListModules { source: io::Error },
 }
@@ -29,10 +31,14 @@ pub type Address = u64;
 pub struct Process {
     handle: ProcessHandle,
     pid: Pid,
-    modules: Vec<MapRange>,
-    last_check: Instant,
+    module_cache: RwLock<ModuleCache>,
     #[cfg(windows)]
     windows_handle: WindowsHandle,
+}
+
+struct ModuleCache {
+    modules: Vec<MapRange>,
+    last_check: Instant,
 }
 
 #[cfg(windows)]
@@ -46,6 +52,12 @@ impl Drop for WindowsHandle {
         }
     }
 }
+
+#[cfg(windows)]
+unsafe impl Send for WindowsHandle {}
+
+#[cfg(windows)]
+unsafe impl Sync for WindowsHandle {}
 
 impl std::fmt::Debug for Process {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -89,8 +101,10 @@ impl Process {
         Ok(Process {
             handle,
             pid,
-            modules: Vec::new(),
-            last_check: Instant::now() - Duration::from_secs(1),
+            module_cache: RwLock::new(ModuleCache {
+                modules: Vec::new(),
+                last_check: Instant::now() - Duration::from_secs(1),
+            }),
             #[cfg(windows)]
             windows_handle: WindowsHandle(windows_handle),
         })
@@ -102,20 +116,35 @@ impl Process {
         process_list.is_open(sysinfo::Pid::from_u32(self.pid as u32))
     }
 
-    pub fn module_address(&mut self, module: &str) -> Result<Address, ModuleError> {
-        self.refresh_modules().context(ListModules)?;
-        self.modules
+    pub fn module_address(&self, module: &str) -> Result<Address, ModuleError> {
+        self.module_cache
+            .write()
+            .map_err(|_| ModuleError::JobThreadDied)?
+            .refresh_modules(self.pid)
+            .context(ListModules)?;
+
+        self.module_cache
+            .read()
+            .map_err(|_| ModuleError::JobThreadDied)?
+            .modules
             .iter()
             .find(|m| m.filename().map_or(false, |f| f.ends_with(module)))
             .context(ModuleDoesntExist)
             .map(|m| m.start() as u64)
     }
 
-    pub fn module_size(&mut self, module: &str) -> Result<u64, ModuleError> {
-        self.refresh_modules().context(ListModules)?;
+    pub fn module_size(&self, module: &str) -> Result<u64, ModuleError> {
+        self.module_cache
+            .write()
+            .map_err(|_| ModuleError::JobThreadDied)?
+            .refresh_modules(self.pid)
+            .context(ListModules)?;
         // TODO: If it doesn't exist, should that be an error? If so how is an
         // error signified with this API, we usually use 0.
         Ok(self
+            .module_cache
+            .read()
+            .map_err(|_| ModuleError::JobThreadDied)?
             .modules
             .iter()
             .filter(|m| m.filename().map_or(false, |f| f.ends_with(module)))
@@ -123,26 +152,11 @@ impl Process {
             .sum())
     }
 
-    fn refresh_modules(&mut self) -> Result<(), io::Error> {
-        let now = Instant::now();
-        if now - self.last_check >= Duration::from_secs(1) {
-            self.modules = match proc_maps::get_process_maps(self.pid) {
-                Ok(m) => m,
-                Err(source) => {
-                    self.modules.clear();
-                    return Err(source);
-                }
-            };
-            self.last_check = now;
-        }
-        Ok(())
-    }
-
     pub fn read_mem(&self, address: Address, buf: &mut [u8]) -> io::Result<()> {
         self.handle.copy_address(address as usize, buf)
     }
 
-    pub fn scan_signature(&mut self, signature: &Signature) -> io::Result<Option<Address>> {
+    pub fn scan_signature(&self, signature: &Signature) -> io::Result<Option<Address>> {
         let (regions, handle) = self.iter_signature_regions()?;
         let mut vec = Vec::new();
         for [addr, len] in regions {
@@ -161,8 +175,8 @@ impl Process {
     }
 
     pub fn scan_signature_range(
-        &mut self,
-        signature: &mut Signature,
+        &self,
+        signature: &Signature,
         filter_address: u64,
         filter_len: u64,
     ) -> io::Result<Option<Address>> {
@@ -192,19 +206,22 @@ impl Process {
 
     #[cfg(not(windows))]
     fn iter_signature_regions(
-        &mut self,
-    ) -> io::Result<(impl Iterator<Item = [usize; 2]> + '_, &mut ProcessHandle)> {
-        self.refresh_modules()?;
+        &self,
+    ) -> io::Result<(impl Iterator<Item = [usize; 2]> + '_, &ProcessHandle)> {
+        self.module_cache
+            .write()
+            .map_err(|_| ModuleError::JobThreadDied)?
+            .refresh_modules(self.pid)?;
         Ok((
             self.modules.iter().map(|m| [m.start(), m.size()]),
-            &mut self.handle,
+            &self.handle,
         ))
     }
 
     #[cfg(windows)]
     fn iter_signature_regions(
-        &mut self,
-    ) -> io::Result<(impl Iterator<Item = [usize; 2]> + '_, &mut ProcessHandle)> {
+        &self,
+    ) -> io::Result<(impl Iterator<Item = [usize; 2]> + '_, &ProcessHandle)> {
         use core::mem;
 
         use winapi::um::{
@@ -240,7 +257,7 @@ impl Process {
         let mut addr = min;
 
         const MBI_SIZE: usize = mem::size_of::<MEMORY_BASIC_INFORMATION>();
-        let handle = &mut self.windows_handle;
+        let handle = &self.windows_handle;
         let iter = core::iter::from_fn(move || {
             while addr < max {
                 unsafe {
@@ -272,6 +289,23 @@ impl Process {
             None
         });
 
-        Ok((iter, &mut self.handle))
+        Ok((iter, &self.handle))
+    }
+}
+
+impl ModuleCache {
+    fn refresh_modules(&mut self, pid: Pid) -> Result<(), io::Error> {
+        let now = Instant::now();
+        if now - self.last_check >= Duration::from_secs(1) {
+            self.modules = match proc_maps::get_process_maps(pid) {
+                Ok(m) => m,
+                Err(source) => {
+                    self.modules.clear();
+                    return Err(source);
+                }
+            };
+            self.last_check = now;
+        }
+        Ok(())
     }
 }

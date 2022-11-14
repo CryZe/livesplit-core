@@ -9,7 +9,8 @@ anyhow = { version = "1.0.45", default-features = false }
 log = { version = "0.4.14", default-features = false }
 memchr = "2.4.1"
 proc-maps = { version = "0.3.0", default-features = false }
-read-process-memory = { version = "0.1.4", default-features = false }
+# read-process-memory = { version = "0.1.4", default-features = false }
+read-process-memory = { path = "read-process-memory", default-features = false }
 slotmap = { version = "1.0.2", default-features = false }
 snafu = "0.7.0"
 sysinfo = { version = "0.26.0", default-features = false }

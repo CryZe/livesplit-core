@@ -176,6 +176,7 @@ impl Runtime {
         let (interrupt_sender, interrupt_receiver) = watch::channel(None);
         let (timeout_sender, timeout_receiver) = watch::channel(None);
 
+        // TODO: Shouldn't we join these?
         thread::Builder::new()
             .name("Auto Splitting Runtime".into())
             .spawn(move || {
