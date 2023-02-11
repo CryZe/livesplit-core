@@ -2,14 +2,16 @@
 
 use crate::{process::Process, settings::UserSetting, timer::Timer, SettingValue, SettingsStore};
 
-use anyhow::{Context as _, Result};
+use anyhow::{ensure, Context as _, Result};
 use slotmap::{Key, KeyData, SlotMap};
 use snafu::Snafu;
 use std::{
+    path::PathBuf,
     str,
     time::{Duration, Instant},
 };
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, SystemExt};
+use wasi_common::{dir::DirCaps, file::FileCaps};
 use wasmtime::{
     Caller, Config, Engine, Extern, Linker, Memory, Module, OptLevel, Store, TypedFunc,
 };
@@ -125,7 +127,11 @@ impl ProcessList {
     }
 
     pub fn is_open(&self, pid: sysinfo::Pid) -> bool {
-        self.system.process(pid).is_some()
+        self.get(pid).is_some()
+    }
+
+    pub fn get(&self, pid: sysinfo::Pid) -> Option<&sysinfo::Process> {
+        self.system.process(pid)
     }
 }
 
@@ -167,7 +173,7 @@ impl<T: Timer> Runtime<T> {
                 memory: None,
                 process_list: ProcessList::new(),
                 #[cfg(feature = "unstable")]
-                wasi: WasiCtxBuilder::new().build(),
+                wasi: build_wasi(),
             },
         );
 
@@ -234,6 +240,60 @@ impl<T: Timer> Runtime<T> {
     pub fn user_settings(&self) -> &[UserSetting] {
         &self.store.data().user_settings
     }
+}
+
+#[cfg(feature = "unstable")]
+fn build_wasi() -> WasiCtx {
+    let mut wasi = WasiCtxBuilder::new()
+        .inherit_stdout()
+        .inherit_stderr()
+        .build();
+
+    #[cfg(windows)]
+    {
+        let mut drives = unsafe { winapi::um::fileapi::GetLogicalDrives() };
+        loop {
+            let drive_idx = drives.trailing_zeros();
+            if drive_idx >= 26 {
+                break;
+            }
+            drives &= !(1 << drive_idx);
+            let drive = drive_idx as u8 + b'a';
+            if let Ok(path) = wasmtime_wasi::Dir::open_ambient_dir(
+                str::from_utf8(&[drive, b':', b'\\']).unwrap(),
+                cap_std::ambient_authority(),
+            ) {
+                wasi.push_dir(
+                    Box::new(wasmtime_wasi::dir::Dir::from_cap_std(path)),
+                    DirCaps::OPEN
+                        | DirCaps::READDIR
+                        | DirCaps::READLINK
+                        | DirCaps::PATH_FILESTAT_GET
+                        | DirCaps::FILESTAT_GET,
+                    FileCaps::READ | FileCaps::SEEK | FileCaps::TELL | FileCaps::FILESTAT_GET,
+                    PathBuf::from(str::from_utf8(&[b'/', b'm', b'n', b't', b'/', drive]).unwrap()),
+                )
+                .unwrap();
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        if let Ok(path) = wasmtime_wasi::Dir::open_ambient_dir("/", cap_std::ambient_authority()) {
+            wasi.push_dir(
+                Box::new(wasmtime_wasi::dir::Dir::from_cap_std(path)),
+                DirCaps::OPEN
+                    | DirCaps::READDIR
+                    | DirCaps::READLINK
+                    | DirCaps::PATH_FILESTAT_GET
+                    | DirCaps::FILESTAT_GET,
+                FileCaps::READ | FileCaps::SEEK | FileCaps::TELL | FileCaps::FILESTAT_GET,
+                PathBuf::from("/mnt"),
+            )
+            .unwrap();
+        }
+    }
+    wasi
 }
 
 fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), CreationError> {
@@ -430,6 +490,79 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
         .map_err(|source| CreationError::LinkFunction {
             source,
             name: "process_get_module_size",
+        })?
+        .func_wrap("env", "process_get_path", {
+            |mut caller: Caller<'_, Context<T>>, process: u64, buf_ptr: u32, buf_len: u32| {
+                let (memory, context) = memory_and_context(&mut caller);
+                let buf = read_slice_mut(memory, buf_ptr, buf_len)?;
+                let path = context
+                    .processes
+                    .get_mut(ProcessKey::from(KeyData::from_ffi(process as u64)))
+                    .ok_or_else(|| anyhow::format_err!("Invalid process handle: {process}"))?
+                    .path()
+                    .unwrap_or_default();
+
+                if buf.is_empty() {
+                    return Ok(path.len() as u32);
+                }
+
+                let len = path.len().min(buf.len());
+                buf[..len].copy_from_slice(&path.as_bytes()[..len]);
+                Ok(len as u32)
+            }
+        })
+        .map_err(|source| CreationError::LinkFunction {
+            source,
+            name: "process_get_path",
+        })?
+        .func_wrap("env", "process_get_module_path", {
+            |mut caller: Caller<'_, Context<T>>,
+             process: u64,
+             module_ptr: u32,
+             module_len: u32,
+             buf_ptr: u32,
+             buf_len: u32| {
+                let (memory, context) = memory_and_context(&mut caller);
+                let (module_name, buf) = if module_ptr < buf_ptr {
+                    ensure!(
+                        module_ptr.saturating_add(module_len) <= buf_ptr,
+                        "Module name and buffer overlap."
+                    );
+                    let (module, buf) = memory.split_at_mut(buf_ptr as usize);
+                    (
+                        read_str(module, module_ptr, module_len)?,
+                        read_slice_mut(buf, 0, buf_len)?,
+                    )
+                } else {
+                    ensure!(
+                        buf_ptr.saturating_add(buf_len) <= module_ptr,
+                        "Module name and buffer overlap."
+                    );
+                    let (buf, module) = memory.split_at_mut(module_ptr as usize);
+                    (
+                        read_str(module, 0, module_len)?,
+                        read_slice_mut(buf, buf_ptr, buf_len)?,
+                    )
+                };
+                let path = context
+                    .processes
+                    .get_mut(ProcessKey::from(KeyData::from_ffi(process as u64)))
+                    .ok_or_else(|| anyhow::format_err!("Invalid process handle: {process}"))?
+                    .module_path(module_name)
+                    .unwrap_or_default();
+
+                if buf.is_empty() {
+                    return Ok(path.len() as u32);
+                }
+
+                let len = path.len().min(buf.len());
+                buf[..len].copy_from_slice(&path.as_bytes()[..len]);
+                Ok(len as u32)
+            }
+        })
+        .map_err(|source| CreationError::LinkFunction {
+            source,
+            name: "process_get_module_path",
         })?
         .func_wrap("env", "process_read", {
             |mut caller: Caller<'_, Context<T>>,

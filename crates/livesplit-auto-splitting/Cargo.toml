@@ -22,6 +22,11 @@ wasmtime = { version = "5.0.0", default-features = false, features = [
   "parallel-compilation",
 ] }
 wasmtime-wasi = { version = "5.0.0", optional = true }
+wasi-common = { version = "5.0.0", optional = true }
+cap-std = { version = "1.0.5", optional = true }
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3.2", features = ["fileapi"], optional = true }
 
 [features]
-unstable = ["wasmtime-wasi"]
+unstable = ["wasmtime-wasi", "wasi-common", "cap-std", "winapi"]
