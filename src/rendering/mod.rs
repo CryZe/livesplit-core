@@ -78,8 +78,8 @@ mod icon;
 mod resource;
 mod scene;
 
-#[cfg(feature = "path-based-text-engine")]
-pub mod path_based_text_engine;
+#[cfg(feature = "default-text-engine")]
+pub mod default_text_engine;
 
 #[cfg(feature = "software-rendering")]
 pub mod software;

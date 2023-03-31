@@ -291,6 +291,7 @@ impl<P> Font<P> {
             style: match font.style {
                 FontStyle::Normal => Style::Normal,
                 FontStyle::Italic => Style::Italic,
+                FontStyle::Oblique => Style::Oblique,
             },
         })?;
 

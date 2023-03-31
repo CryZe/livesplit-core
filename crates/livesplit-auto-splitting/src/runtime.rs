@@ -2,7 +2,7 @@
 
 use crate::{process::Process, settings::UserSetting, timer::Timer, SettingValue, SettingsStore};
 
-use anyhow::{Context as _, Result};
+use anyhow::{format_err, Context as _, Result};
 use slotmap::{Key, KeyData, SlotMap};
 use snafu::Snafu;
 use std::{
@@ -410,7 +410,7 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
                     .data_mut()
                     .processes
                     .remove(ProcessKey::from(KeyData::from_ffi(process as u64)))
-                    .ok_or_else(|| anyhow::format_err!("Invalid process handle {process}"))?;
+                    .ok_or_else(|| format_err!("Invalid process handle {process}"))?;
                 caller
                     .data_mut()
                     .timer
@@ -428,13 +428,28 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
                 let proc = ctx
                     .processes
                     .get(ProcessKey::from(KeyData::from_ffi(process as u64)))
-                    .ok_or_else(|| anyhow::format_err!("Invalid process handle: {process}"))?;
+                    .ok_or_else(|| format_err!("Invalid process handle: {process}"))?;
                 Ok(proc.is_open(&mut ctx.process_list) as u32)
             }
         })
         .map_err(|source| CreationError::LinkFunction {
             source,
             name: "process_is_open",
+        })?
+        .func_wrap("env", "process_get_bit_width", {
+            |mut caller: Caller<'_, Context<T>>, process: u64| {
+                let ctx = caller.data_mut();
+                let proc = ctx
+                    .processes
+                    .get(ProcessKey::from(KeyData::from_ffi(process as u64)))
+                    .ok_or_else(|| format_err!("Invalid process handle: {process}"))?;
+                let bit_width: u32 = proc.bit_width();
+                Ok(bit_width)
+            }
+        })
+        .map_err(|source| CreationError::LinkFunction {
+            source,
+            name: "process_get_bit_width",
         })?
         .func_wrap("env", "process_get_module_address", {
             |mut caller: Caller<'_, Context<T>>, process: u64, ptr: u32, len: u32| {
@@ -443,7 +458,7 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
                 Ok(context
                     .processes
                     .get_mut(ProcessKey::from(KeyData::from_ffi(process as u64)))
-                    .ok_or_else(|| anyhow::format_err!("Invalid process handle: {process}"))?
+                    .ok_or_else(|| format_err!("Invalid process handle: {process}"))?
                     .module_address(module_name)
                     .unwrap_or_default())
             }
@@ -459,7 +474,7 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
                 Ok(context
                     .processes
                     .get_mut(ProcessKey::from(KeyData::from_ffi(process as u64)))
-                    .ok_or_else(|| anyhow::format_err!("Invalid process handle: {process}"))?
+                    .ok_or_else(|| format_err!("Invalid process handle: {process}"))?
                     .module_size(module_name)
                     .unwrap_or_default())
             }
@@ -478,7 +493,7 @@ fn bind_interface<T: Timer>(linker: &mut Linker<Context<T>>) -> Result<(), Creat
                 Ok(context
                     .processes
                     .get(ProcessKey::from(KeyData::from_ffi(process as u64)))
-                    .ok_or_else(|| anyhow::format_err!("Invalid process handle: {process}"))?
+                    .ok_or_else(|| format_err!("Invalid process handle: {process}"))?
                     .read_mem(address, read_slice_mut(memory, buf_ptr, buf_len)?)
                     .is_ok() as u32)
             }

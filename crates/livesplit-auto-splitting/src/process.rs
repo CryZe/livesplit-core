@@ -9,6 +9,10 @@ use proc_maps::{MapRange, Pid};
 use read_process_memory::{CopyAddress, ProcessHandle};
 use snafu::{OptionExt, ResultExt, Snafu};
 use sysinfo::{self, PidExt, ProcessExt};
+use winapi::um::{
+    handleapi::CloseHandle, processthreadsapi::OpenProcess, winnt::PROCESS_QUERY_INFORMATION,
+    wow64apiset::IsWow64Process,
+};
 
 use crate::runtime::ProcessList;
 
@@ -114,5 +118,34 @@ impl Process {
 
     pub fn read_mem(&self, address: Address, buf: &mut [u8]) -> io::Result<()> {
         self.handle.copy_address(address as usize, buf)
+    }
+
+    pub fn bit_width(&self) -> u32 {
+        #[cfg(all(windows, target_arch = "x86_64"))]
+        {
+            unsafe {
+                let handle = OpenProcess(PROCESS_QUERY_INFORMATION, 0, self.pid);
+                if handle.is_null() {
+                    return 0;
+                }
+                let mut is_32_bit = 0;
+                let result = IsWow64Process(handle, &mut is_32_bit);
+                let bits = if result != 0 {
+                    if is_32_bit != 0 {
+                        32
+                    } else {
+                        64
+                    }
+                } else {
+                    0
+                };
+                CloseHandle(handle);
+                bits
+            }
+        }
+        #[cfg(not(all(windows, target_arch = "x86_64")))]
+        {
+            0
+        }
     }
 }

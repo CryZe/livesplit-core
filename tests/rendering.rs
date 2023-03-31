@@ -14,7 +14,7 @@ use livesplit_core::{
     run::parser::{livesplit, llanfair, wsplit},
     Run, Segment, TimeSpan, Timer, TimingMethod,
 };
-use std::fs;
+use std::{fs, path::PathBuf};
 
 fn lss(data: &str) -> Run {
     livesplit::parse(data).unwrap()
@@ -38,7 +38,63 @@ fn default() {
 
     let state = layout.state(&timer.snapshot());
 
-    check(&state, "luoAAABANDM=", "default");
+    check(&state, "luIAAABAPLM=", "default");
+}
+
+#[test]
+fn font_fallback() {
+    let mut run = tests_helper::create_run(&[
+        // Emoji
+        "❤✔👌🤔😂😁🎉💀🤣",
+        // Braille
+        "⠃⠗⠁⠊⠇⠇⠑",
+        // Hebrew
+        "עברית",
+        // Arabic
+        "اَلْعَرَبِيَّةُ",
+        // Dhivehi
+        "ދިވެހި",
+        // Devanagari
+        "देवनागरी",
+        // Assamese
+        "বাংলা-অসমীয়া",
+        // Tamil
+        "தமிழ்",
+        // Telugu
+        "తెలుగు",
+        // Malayalam
+        "മലയാളം",
+        // Sinhala
+        "සිංහල",
+        // Thai
+        "ไทย",
+        // Burmese
+        "မြန်မာ",
+        // Canadian Aboriginal Syllabics
+        "ᖃᓂᐅᔮᖅᐸᐃᑦ ᒐᐦᑲᓯᓇᐦᐃᑫᐤ ᑯᖾᖹ ᖿᐟᖻ ᓱᖽᐧᖿ ᑐᑊᘁᗕᑋᗸ",
+        // Hanzi, Kana
+        "汉字 漢字 かな カナ",
+    ]);
+    run.set_game_name("한국어도 돼요"); // Hangul
+    run.set_category_name("Кирилица"); // Cyrillic
+    run.set_attempt_count(1337);
+    let mut timer = Timer::new(run).unwrap();
+    let mut layout = Layout::default_layout();
+
+    tests_helper::start_run(&mut timer);
+    tests_helper::make_progress_run_with_splits_opt(&mut timer, &[Some(5.0), None, Some(10.0)]);
+
+    let _state = layout.state(&timer.snapshot());
+
+    // Font fallback inherently requires fonts from the operating system to
+    // work. On Windows we have a consistent set of fonts installed for all the
+    // different languages. We could do the same check on macOS and possibly a
+    // few other operating systems, which also provide a consistent set of
+    // fonts, but with a different hash. On Linux however you may have a
+    // different set of fonts installed, or possibly even none at all, so we
+    // can't do the same check there.
+    #[cfg(all(feature = "font-loading", windows))]
+    check(&_state, "z8iQgJgEMbI=", "font_fallback");
 }
 
 #[test]
@@ -49,7 +105,7 @@ fn actual_split_file() {
 
     check(
         &layout.state(&timer.snapshot()),
-        "jMTAARBAPLM=",
+        "jMDAARBAPLM=",
         "actual_split_file",
     );
 }
@@ -63,7 +119,7 @@ fn wsplit() {
     check_dims(
         &layout.state(&timer.snapshot()),
         [250, 300],
-        "j/n83PnZv/c=",
+        "j/n8/PnZv/c=",
         "wsplit",
     );
 }
@@ -79,7 +135,7 @@ fn timer_delta_background() {
     check_dims(
         &layout.state(&timer.snapshot()),
         [250, 300],
-        "a+nRyOCfXU0=",
+        "a+nRyKBfXc0=",
         "timer_delta_background_ahead",
     );
 
@@ -88,7 +144,7 @@ fn timer_delta_background() {
     check_dims(
         &layout.state(&timer.snapshot()),
         [250, 300],
-        "a+nZyeGfW80=",
+        "a+nZyaFfX80=",
         "timer_delta_background_stopped",
     );
 }
@@ -106,9 +162,9 @@ fn all_components() {
 
     let state = layout.state(&timer.snapshot());
 
-    check_dims(&state, [300, 800], "4WH3ocnJI/E=", "all_components");
+    check_dims(&state, [300, 800], "4en3ocnJp/E=", "all_components");
 
-    check_dims(&state, [150, 800], "SXPHSWVpRlc=", "all_components_thin");
+    check_dims(&state, [150, 800], "SXfHSWVpRkc=", "all_components_thin");
 }
 
 #[test]
@@ -127,7 +183,7 @@ fn score_split() {
     state.components.push(ComponentState::Timer(timer_state));
     state.components.push(prev_seg);
 
-    check_dims(&state, [300, 400], "jOCAAQTAJjc=", "score_split");
+    check_dims(&state, [300, 400], "jOCAAQTABjc=", "score_split");
 }
 
 #[test]
@@ -138,7 +194,7 @@ fn dark_layout() {
 
     check(
         &layout.state(&timer.snapshot()),
-        "b8AIQABIwYM=",
+        "T8AQQABqwYc=",
         "dark_layout",
     );
 }
@@ -158,7 +214,7 @@ fn subsplits_layout() {
     check_dims(
         &layout.state(&timer.snapshot()),
         [300, 800],
-        "8/vz6/Pz/+c=",
+        "8/vz8/Pz/+c=",
         "subsplits_layout",
     );
 }
@@ -181,7 +237,7 @@ fn display_two_rows() {
     check_dims(
         &layout.state(&timer.snapshot()),
         [200, 100],
-        "QU0aWs1J0sA=",
+        "Q0UaMs1J0sA=",
         "display_two_rows",
     );
 }
@@ -204,7 +260,7 @@ fn single_line_title() {
     check_dims(
         &layout.state(&timer.snapshot()),
         [300, 60],
-        "ABJkm0toYZA=",
+        "ABJtmxt4YZA=",
         "single_line_title",
     );
 }
@@ -281,21 +337,26 @@ fn check_dims(
     let expected_hash = ImageHash::<[u8; 8]>::from_base64(expected_hash_data).unwrap();
     let distance = calculated_hash.dist(&expected_hash);
 
-    fs::create_dir_all("target/renders").ok();
+    let mut path = PathBuf::from_iter(["target", "renders"]);
+    fs::create_dir_all(&path).ok();
 
-    let path = format!(
-        "target/renders/{name}_{}.png",
+    let mut actual_path = path.clone();
+    actual_path.push(format!(
+        "{name}_{}.png",
         calculated_hash_data.replace('/', "-"),
-    );
-    image.save(&path).ok();
+    ));
+    image.save(&actual_path).ok();
 
     if distance > get_comparison_tolerance() {
-        fs::create_dir_all("target/renders/diff").ok();
+        path.push("diff");
+        fs::create_dir_all(&path).ok();
+        path.pop();
 
-        let expected_path = format!(
-            "target/renders/{name}_{}.png",
+        let mut expected_path = path.clone();
+        expected_path.push(format!(
+            "{name}_{}.png",
             expected_hash_data.replace('/', "-"),
-        );
+        ));
         let diff_path = if let Ok(expected_image) = image::open(&expected_path) {
             let mut expected_image = expected_image.to_rgba8();
             for (x, y, Rgba([r, g, b, a])) in expected_image.enumerate_pixels_mut() {
@@ -307,19 +368,25 @@ fn check_dims(
                     *a = (*a).max(a2);
                 }
             }
-            let diff_path = format!("target/renders/diff/{name}.png");
+
+            let mut diff_path = path.clone();
+            diff_path.push("diff");
+            diff_path.push(format!("{name}.png"));
             expected_image.save(&diff_path).ok();
             diff_path
         } else {
-            String::from("Not found")
+            PathBuf::from("Not found")
         };
 
         panic!(
             "Render mismatch for {name}
-expected: {expected_hash_data} {expected_path}
-actual: {calculated_hash_data} {path}
-diff: {diff_path}
+expected: {expected_hash_data} {}
+actual: {calculated_hash_data} {}
+diff: {}
 distance: {distance}",
+            expected_path.display(),
+            actual_path.display(),
+            diff_path.display(),
         );
     }
 }

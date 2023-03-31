@@ -2,6 +2,7 @@
 
 use crate::{
     hotkey::Hotkey,
+    localization::{Lang, Text},
     platform::prelude::*,
     settings::{Field, SettingsDescription, Value},
 };
@@ -21,7 +22,8 @@ pub struct HotkeyConfig {
     pub skip: Option<Hotkey>,
     /// The key to use for pausing the current attempt and starting a new
     /// attempt.
-    pub pause: Option<Hotkey>,
+    #[serde(alias = "pause")]
+    pub toggle_pause: Option<Hotkey>,
     /// The key to use for removing all the pause times from the current time.
     pub undo_all_pauses: Option<Hotkey>,
     /// The key to use for switching to the previous comparison.
@@ -41,7 +43,7 @@ impl Default for HotkeyConfig {
             reset: Some(Numpad3.into()),
             undo: Some(Numpad8.into()),
             skip: Some(Numpad2.into()),
-            pause: Some(Numpad5.into()),
+            toggle_pause: Some(Numpad5.into()),
             undo_all_pauses: None,
             previous_comparison: Some(Numpad4.into()),
             next_comparison: Some(Numpad6.into()),
@@ -55,11 +57,14 @@ impl HotkeyConfig {
     /// configuration and their current values.
     pub fn settings_description(&self) -> SettingsDescription {
         SettingsDescription::with_fields(vec![
-            Field::new("Start / Split".into(), self.split.into()),
+            Field::new(
+                Text::StartSplit.resolve(Lang::English).into(),
+                self.split.into(),
+            ),
             Field::new("Reset".into(), self.reset.into()),
             Field::new("Undo Split".into(), self.undo.into()),
             Field::new("Skip Split".into(), self.skip.into()),
-            Field::new("Pause".into(), self.pause.into()),
+            Field::new("Pause / Resume".into(), self.toggle_pause.into()),
             Field::new("Undo All Pauses".into(), self.undo_all_pauses.into()),
             Field::new(
                 "Previous Comparison".into(),
@@ -67,7 +72,7 @@ impl HotkeyConfig {
             ),
             Field::new("Next Comparison".into(), self.next_comparison.into()),
             Field::new(
-                "Toggle Timing Method".into(),
+                "Real Time / Game Time".into(),
                 self.toggle_timing_method.into(),
             ),
         ])
@@ -94,7 +99,7 @@ impl HotkeyConfig {
                 self.reset,
                 self.undo,
                 self.skip,
-                self.pause,
+                self.toggle_pause,
                 self.undo_all_pauses,
                 self.previous_comparison,
                 self.next_comparison,
@@ -115,7 +120,7 @@ impl HotkeyConfig {
             1 => self.reset = value,
             2 => self.undo = value,
             3 => self.skip = value,
-            4 => self.pause = value,
+            4 => self.toggle_pause = value,
             5 => self.undo_all_pauses = value,
             6 => self.previous_comparison = value,
             7 => self.next_comparison = value,

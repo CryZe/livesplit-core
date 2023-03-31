@@ -15,6 +15,7 @@
     clippy::new_ret_no_self
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(doc_auto_cfg, feature(doc_cfg, doc_auto_cfg))]
 
 //! livesplit-core is a library that provides a lot of functionality for creating a speedrun timer.
 //!
@@ -69,6 +70,7 @@ mod hotkey_config;
 #[cfg(feature = "std")]
 mod hotkey_system;
 pub mod layout;
+mod localization;
 #[cfg(feature = "networking")]
 pub mod networking;
 #[cfg(feature = "rendering")]

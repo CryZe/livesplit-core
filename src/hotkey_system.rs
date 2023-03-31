@@ -39,7 +39,7 @@ impl Action {
             Action::Reset => config.reset = hotkey,
             Action::Undo => config.undo = hotkey,
             Action::Skip => config.skip = hotkey,
-            Action::Pause => config.pause = hotkey,
+            Action::Pause => config.toggle_pause = hotkey,
             Action::UndoAllPauses => config.undo_all_pauses = hotkey,
             Action::PreviousComparison => config.previous_comparison = hotkey,
             Action::NextComparison => config.next_comparison = hotkey,
@@ -53,7 +53,7 @@ impl Action {
             Action::Reset => config.reset,
             Action::Undo => config.undo,
             Action::Skip => config.skip,
-            Action::Pause => config.pause,
+            Action::Pause => config.toggle_pause,
             Action::UndoAllPauses => config.undo_all_pauses,
             Action::PreviousComparison => config.previous_comparison,
             Action::NextComparison => config.next_comparison,
@@ -260,7 +260,7 @@ impl HotkeySystem {
         self.set_reset(config.reset)?;
         self.set_undo(config.undo)?;
         self.set_skip(config.skip)?;
-        self.set_pause(config.pause)?;
+        self.set_pause(config.toggle_pause)?;
         self.set_previous_comparison(config.previous_comparison)?;
         self.set_next_comparison(config.next_comparison)?;
         self.set_undo_all_pauses(config.undo_all_pauses)?;

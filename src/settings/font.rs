@@ -41,13 +41,14 @@ pub enum Style {
     Normal,
     /// Select an italic version of the font.
     Italic,
+    Oblique,
 }
 
 impl Style {
     /// The value to assign to the `ital` variation axis.
     pub const fn value_for_italic(self) -> f32 {
         match self {
-            Style::Normal => 0.0,
+            Style::Normal | Style::Oblique /* TODO: */ => 0.0,
             Style::Italic => 1.0,
         }
     }
