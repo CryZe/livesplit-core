@@ -1,8 +1,9 @@
 //! Provides the parser for OpenSplit splits files.
 //!
 // https://github.com/ZellyDev-Games/OpenSplit
+// commit 670694c9e798bdcc500bc9a4e21b98f5acc32c64
 
-use crate::{Run, Segment, Time, TimeSpan, platform::prelude::*};
+use crate::{Run, Segment, Time, platform::prelude::*};
 use alloc::borrow::Cow;
 use core::result::Result as StdResult;
 use serde_derive::Deserialize;
@@ -30,18 +31,16 @@ struct SplitFilePayload<'a> {
     game_name: Cow<'a, str>,
     #[serde(borrow)]
     game_category: Cow<'a, str>,
-    segments: Option<Vec<SegmentPayload<'a>>>,
-    attempts: u32,
     runs: Option<Vec<RunPayload<'a>>>,
+    segments: Option<Vec<SegmentPayload<'a>>>,
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct RunPayload<'a> {
     total_time: i64,
-    completed: bool,
     #[serde(borrow)]
     split_payloads: Option<Vec<SplitPayload<'a>>>,
+    completed: bool,
 }
 
 #[derive(Deserialize)]
@@ -50,7 +49,7 @@ struct SplitPayload<'a> {
     split_segment_id: Cow<'a, str>,
     // FIXME: Is current_time the correct field?
     // current_time: TimeSpan,
-    current_duration: i64,
+    current_cumulative: i64,
 }
 
 #[derive(Deserialize)]
@@ -59,24 +58,21 @@ struct SegmentPayload<'a> {
     id: Cow<'a, str>,
     #[serde(borrow)]
     name: Cow<'a, str>,
-    best_time: TimeSpan,
+    gold: i64,
+    pb: i64,
     // FIXME: Would need to be stored as part of the segment history
-    // average_time: TimeSpan,
+    // average: i64,
 }
 
-fn nullable(real_time: TimeSpan) -> Time {
+fn time(real_time: i64) -> Time {
     // Empty Time is stored as zero
-    let real_time = if real_time != TimeSpan::zero() {
-        Some(real_time)
+    let real_time = if real_time != 0 {
+        Some(crate::platform::Duration::milliseconds(real_time).into())
     } else {
         None
     };
 
     Time::new().with_real_time(real_time)
-}
-
-fn integer_time(nanos: i64) -> TimeSpan {
-    crate::platform::Duration::nanoseconds(nanos).into()
 }
 
 /// Attempts to parse an OpenSplit splits file.
@@ -88,7 +84,6 @@ pub fn parse(source: &str) -> Result<Run> {
 
     run.set_game_name(splits.game_name);
     run.set_category_name(splits.game_category);
-    run.set_attempt_count(splits.attempts);
 
     if let Some(segments) = splits.segments {
         let mut segment_ids = Vec::with_capacity(segments.len());
@@ -96,20 +91,25 @@ pub fn parse(source: &str) -> Result<Run> {
         for segment_payload in segments {
             segment_ids.push(segment_payload.id);
             let mut segment = Segment::new(segment_payload.name);
-            segment.set_personal_best_split_time(nullable(segment_payload.best_time));
+            segment.set_best_segment_time(time(segment_payload.gold));
+            segment.set_personal_best_split_time(time(segment_payload.pb));
             run.push_segment(segment);
         }
 
         let mut attempt_history_index = 1;
 
         if let Some(runs) = splits.runs {
+            if let Ok(attempt_count) = runs.len().try_into() {
+                run.set_attempt_count(attempt_count);
+            }
+
             for run_payload in runs {
                 run.add_attempt_with_index(
-                    Time::new().with_real_time(if run_payload.completed {
-                        Some(integer_time(run_payload.total_time))
+                    if run_payload.completed {
+                        time(run_payload.total_time)
                     } else {
-                        None
-                    }),
+                        Time::new()
+                    },
                     attempt_history_index,
                     None,
                     None,
@@ -126,14 +126,13 @@ pub fn parse(source: &str) -> Result<Run> {
                             .position(|id| *id == split_payload.split_segment_id)
                             && previous_idx.is_none_or(|prev| idx > prev)
                         {
-                            let segment_time = split_payload.current_duration - current_time;
+                            let segment_time = split_payload.current_cumulative - current_time;
 
-                            run.segments_mut()[idx].segment_history_mut().insert(
-                                attempt_history_index,
-                                Time::new().with_real_time(Some(integer_time(segment_time))),
-                            );
+                            run.segments_mut()[idx]
+                                .segment_history_mut()
+                                .insert(attempt_history_index, time(segment_time));
 
-                            current_time = split_payload.current_duration;
+                            current_time = split_payload.current_cumulative;
                             previous_idx = Some(idx);
                         }
                     }

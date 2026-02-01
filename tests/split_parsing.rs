@@ -137,7 +137,7 @@ mod parse {
 
     #[test]
     fn urn() {
-        urn::parse(run_files::URN).unwrap();
+        urn::parse(run_files::URN, None).unwrap();
     }
 
     #[test]

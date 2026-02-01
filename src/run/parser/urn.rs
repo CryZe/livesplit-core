@@ -1,6 +1,11 @@
 //! Provides the parser for Urn splits files.
 
-use crate::{Run, Segment, Time, TimeSpan, platform::prelude::*};
+#[cfg(feature = "std")]
+use crate::settings::Image;
+use crate::{
+    Run, Segment, Time, TimeSpan,
+    platform::{path::Path, prelude::*},
+};
 use alloc::borrow::Cow;
 use core::result::Result as StdResult;
 use serde_derive::Deserialize;
@@ -35,6 +40,8 @@ struct Splits<'a> {
 struct Split<'a> {
     #[serde(borrow)]
     title: Option<Cow<'a, str>>,
+    #[serde(borrow)]
+    icon: Option<Cow<'a, Path>>,
     time: Option<TimeSpan>,
     best_time: Option<TimeSpan>,
     best_segment: Option<TimeSpan>,
@@ -52,11 +59,13 @@ fn parse_time(real_time: TimeSpan) -> Time {
 }
 
 /// Attempts to parse an Urn splits file.
-pub fn parse(source: &str) -> Result<Run> {
+pub fn parse(source: &str, path_for_loading_other_files: Option<&Path>) -> Result<Run> {
     let splits: Splits<'_> =
         serde_json::from_str(source).map_err(|source| Error::Json { source })?;
 
     let mut run = Run::new();
+    #[cfg(feature = "std")]
+    let mut buf = Vec::new();
 
     if let Some(title) = splits.title {
         run.set_category_name(title);
@@ -77,6 +86,15 @@ pub fn parse(source: &str) -> Result<Run> {
     if let Some(splits) = splits.splits {
         for split in splits {
             let mut segment = Segment::new(split.title.unwrap_or_default());
+
+            #[cfg(feature = "std")]
+            catch! {
+                let path = path_for_loading_other_files.as_ref()?;
+                let icon_path = path.join(split.icon?);
+                let image = Image::from_file(icon_path, &mut buf, Image::ICON).ok()?;
+                segment.set_icon(image);
+            };
+
             if let Some(time) = split.time {
                 segment.set_personal_best_split_time(parse_time(time));
             }

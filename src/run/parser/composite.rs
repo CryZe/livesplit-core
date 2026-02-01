@@ -159,7 +159,7 @@ pub fn parse<'source>(
         }
 
         // Urn accepts entirely empty JSON files.
-        if let Ok(run) = urn::parse(source) {
+        if let Ok(run) = urn::parse(source, load_files_path) {
             return Ok(parsed(run, TimerKind::Urn));
         }
     }
