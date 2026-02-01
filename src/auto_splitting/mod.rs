@@ -610,7 +610,7 @@ pub enum Error {
 
 /// An auto splitter runtime that allows using an auto splitter provided as a
 /// WebAssembly module to control a timer.
-pub struct Runtime<T: event::CommandSink + TimerQuery + Send + 'static> {
+pub struct Runtime<T: event::CommandSink + AutoSplittingQuery + Send + 'static> {
     shared_state: Arc<SharedState<T>>,
     changed_sender: Sender<()>,
     runtime: livesplit_auto_splitting::Runtime,
@@ -636,7 +636,7 @@ impl<T> SharedState<T> {
     }
 }
 
-impl<T: event::CommandSink + TimerQuery + Send + 'static> Drop for Runtime<T> {
+impl<T: event::CommandSink + AutoSplittingQuery + Send + 'static> Drop for Runtime<T> {
     fn drop(&mut self) {
         let _ = self.shared_state.update_watchdog(WatchdogState::Shutdown);
         if let Some(auto_splitter) = &*self.shared_state.auto_splitter.load() {
@@ -646,13 +646,44 @@ impl<T: event::CommandSink + TimerQuery + Send + 'static> Drop for Runtime<T> {
     }
 }
 
-impl<T: event::CommandSink + TimerQuery + Send + 'static> Default for Runtime<T> {
+impl<T: event::CommandSink + AutoSplittingQuery + Send + 'static> Default for Runtime<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: event::CommandSink + TimerQuery + Send + 'static> Runtime<T> {
+pub trait AutoSplittingQuery {
+    fn current_phase(&self) -> TimerPhase;
+    fn current_split_index(&self) -> Option<usize>;
+    fn segment_splitted(&self, idx: usize) -> Option<bool>;
+}
+
+impl<T: TimerQuery> AutoSplittingQuery for T {
+    fn current_phase(&self) -> TimerPhase {
+        self.get_timer().current_phase()
+    }
+
+    fn current_split_index(&self) -> Option<usize> {
+        self.get_timer().current_split_index()
+    }
+
+    fn segment_splitted(&self, idx: usize) -> Option<bool> {
+        let t = self.get_timer();
+        if idx >= t.current_split_index()? {
+            return None;
+        }
+        Some(
+            t.run()
+                .segments()
+                .get(idx)?
+                .split_time()
+                .real_time
+                .is_some(),
+        )
+    }
+}
+
+impl<T: event::CommandSink + AutoSplittingQuery + Send + 'static> Runtime<T> {
     /// Starts the runtime. Doesn't actually load an auto splitter until
     /// [`load`][Runtime::load] is called.
     pub fn new() -> Self {
@@ -789,9 +820,9 @@ impl<T: event::CommandSink + TimerQuery + Send + 'static> Runtime<T> {
 // is an Arc<RwLock<T>>, so we can't implement the trait directly on it.
 struct Timer<E>(E);
 
-impl<E: event::CommandSink + TimerQuery + Send + 'static> AutoSplitTimer for Timer<E> {
+impl<E: event::CommandSink + AutoSplittingQuery + Send + 'static> AutoSplitTimer for Timer<E> {
     fn state(&self) -> TimerState {
-        match self.0.get_timer().current_phase() {
+        match self.0.current_phase() {
             TimerPhase::NotRunning => TimerState::NotRunning,
             TimerPhase::Running => TimerState::Running,
             TimerPhase::Paused => TimerState::Paused,
@@ -800,22 +831,11 @@ impl<E: event::CommandSink + TimerQuery + Send + 'static> AutoSplitTimer for Tim
     }
 
     fn current_split_index(&self) -> Option<usize> {
-        self.0.get_timer().current_split_index()
+        self.0.current_split_index()
     }
 
     fn segment_splitted(&self, idx: usize) -> Option<bool> {
-        let t = self.0.get_timer();
-        if idx >= t.current_split_index()? {
-            return None;
-        }
-        Some(
-            t.run()
-                .segments()
-                .get(idx)?
-                .split_time()
-                .real_time
-                .is_some(),
-        )
+        self.0.segment_splitted(idx)
     }
 
     fn start(&mut self) {
@@ -870,7 +890,7 @@ impl<E: event::CommandSink + TimerQuery + Send + 'static> AutoSplitTimer for Tim
     }
 }
 
-fn run<T: event::CommandSink + TimerQuery + Send>(
+fn run<T: event::CommandSink + AutoSplittingQuery + Send>(
     shared_state: Arc<SharedState<T>>,
     changed_receiver: Receiver<()>,
 ) {
@@ -949,7 +969,7 @@ fn run<T: event::CommandSink + TimerQuery + Send>(
     }
 }
 
-fn watchdog<T: event::CommandSink + TimerQuery + Send>(shared_state: Arc<SharedState<T>>) {
+fn watchdog<T: event::CommandSink + AutoSplittingQuery + Send>(shared_state: Arc<SharedState<T>>) {
     const TIMEOUT: Duration = Duration::from_secs(5);
     let mut has_timed_out = false;
 
