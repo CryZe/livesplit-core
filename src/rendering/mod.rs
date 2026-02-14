@@ -83,6 +83,8 @@ pub mod default_text_engine;
 
 #[cfg(feature = "software-rendering")]
 pub mod software;
+#[cfg(feature = "software-rendering-vello")]
+pub mod software_vello;
 #[cfg(feature = "svg-rendering")]
 pub mod svg;
 #[cfg(all(target_family = "wasm", feature = "web-rendering"))]
@@ -899,7 +901,7 @@ impl Transform {
         }
     }
 
-    #[cfg(feature = "software-rendering")]
+    #[cfg(any(feature = "software-rendering", feature = "software-rendering-vello"))]
     fn transform_y(&self, y: f32) -> f32 {
         self.y + self.scale_y * y
     }

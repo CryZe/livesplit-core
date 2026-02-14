@@ -1,5 +1,9 @@
 #![cfg(all(
-    any(feature = "software-rendering", feature = "svg-rendering"),
+    any(
+        feature = "software-rendering",
+        feature = "software-rendering-vello",
+        feature = "svg-rendering",
+    ),
     not(all(target_arch = "x86", not(target_feature = "sse"))),
 ))]
 
@@ -501,7 +505,21 @@ fn check_dims(
     name: &str,
 ) {
     #[cfg(feature = "software-rendering")]
-    check_software(state, image_cache, dims, _png_hash, name);
+    let software_hash = check_software(state, image_cache, dims, _png_hash, name);
+    #[cfg(all(feature = "software-rendering", feature = "software-rendering-vello"))]
+    check_software_vello(
+        state,
+        image_cache,
+        dims,
+        _png_hash,
+        name,
+        Some(&software_hash),
+    );
+    #[cfg(all(
+        not(feature = "software-rendering"),
+        feature = "software-rendering-vello"
+    ))]
+    check_software_vello(state, image_cache, dims, _png_hash, name, None);
     #[cfg(feature = "svg-rendering")]
     check_svg(state, image_cache, dims, _svg_hash, name);
 }
@@ -514,7 +532,7 @@ fn check_software(
     dims: [u32; 2],
     expected_hash: &str,
     name: &str,
-) {
+) -> String {
     let mut renderer = rendering::software::Renderer::new();
     renderer.render(state, image_cache, dims);
 
@@ -559,6 +577,73 @@ fn check_software(
 
         panic!(
             "Software render mismatch for {name}
+expected: {expected_hash} {}
+actual: {calculated_hash} {}
+diff: {}",
+            expected_path.display(),
+            actual_path.display(),
+            diff_path.display(),
+        );
+    }
+
+    calculated_hash
+}
+
+#[cfg(feature = "software-rendering-vello")]
+#[track_caller]
+fn check_software_vello(
+    state: &LayoutState,
+    image_cache: &ImageCache,
+    dims: [u32; 2],
+    expected_hash: &str,
+    name: &str,
+    software_hash: Option<&str>,
+) {
+    let mut renderer = rendering::software_vello::Renderer::new();
+    renderer.render(state, image_cache, dims);
+
+    let hash_image = renderer.image();
+    let calculated_hash = seahash::hash(&hash_image);
+    let calculated_hash = format!("{calculated_hash:016x}");
+
+    let mut path = PathBuf::from_iter(["target", "renders"]);
+    fs::create_dir_all(&path).ok();
+
+    let mut actual_path = path.clone();
+    actual_path.push(format!("{name}_vello_{calculated_hash}.png"));
+    hash_image.save(&actual_path).ok();
+
+    let expected_hash = software_hash.unwrap_or(expected_hash);
+    if calculated_hash != expected_hash {
+        path.push("diff");
+        fs::create_dir_all(&path).ok();
+        path.pop();
+
+        let mut expected_path = path.clone();
+        expected_path.push(format!("{name}_{expected_hash}.png"));
+        let diff_path = if let Ok(expected_image) = image::open(&expected_path) {
+            let mut expected_image = expected_image.to_rgba8();
+            for (x, y, image::Rgba([r, g, b, a])) in expected_image.enumerate_pixels_mut() {
+                if x < hash_image.width() && y < hash_image.height() {
+                    let image::Rgba([r2, g2, b2, a2]) = *hash_image.get_pixel(x, y);
+                    *r = r.abs_diff(r2);
+                    *g = g.abs_diff(g2);
+                    *b = b.abs_diff(b2);
+                    *a = (*a).max(a2);
+                }
+            }
+
+            let mut diff_path = path.clone();
+            diff_path.push("diff");
+            diff_path.push(format!("{name}_vello.png"));
+            expected_image.save(&diff_path).ok();
+            diff_path
+        } else {
+            PathBuf::from("Not found")
+        };
+
+        panic!(
+            "Vello software render mismatch for {name}
 expected: {expected_hash} {}
 actual: {calculated_hash} {}
 diff: {}",

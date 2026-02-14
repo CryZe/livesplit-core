@@ -81,6 +81,7 @@ tiny-skia = { version = "0.12.0", default-features = false, features = [
     "simd",
 ], optional = true }
 tiny-skia-path = { version = "0.12.0", default-features = false, optional = true }
+vello_cpu = { version = "0.0.6", optional = true, features = ["multithreading"] }
 
 # SVG Rendering
 foldhash = { version = "0.2.0", default-features = false, optional = true }
@@ -160,6 +161,7 @@ rendering = ["more-image-formats", "image?/gif"]
 default-text-engine = ["rendering", "cosmic-text"]
 font-loading = ["std", "default-text-engine"]
 software-rendering = ["default-text-engine", "tiny-skia", "tiny-skia-path"]
+software-rendering-vello = ["default-text-engine", "vello_cpu"]
 svg-rendering = ["default-text-engine", "foldhash"]
 web-rendering = [
     "wasm-web",
