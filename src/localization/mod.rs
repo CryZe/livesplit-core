@@ -31,7 +31,7 @@ mod russian;
 mod spanish;
 
 /// The supported languages for localization.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Lang {
     /// English / English / en

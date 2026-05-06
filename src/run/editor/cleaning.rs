@@ -65,9 +65,40 @@ pub struct PotentialCleanUp<'r> {
 }
 
 /// Describes an actual clean up that is about to be applied.
+#[derive(Clone, PartialEq, Eq)]
 pub struct CleanUp {
     ending_index: usize,
     run_index: i32,
+}
+
+/// An owned potential clean up that can safely be carried across UI event
+/// boundaries. The interactive desktop UI asks the user a Yes / No / Cancel
+/// question in a separate OS dialog window for every potential clean up. Those
+/// dialogs are asynchronous from the point of view of the editor, so the UI
+/// cannot hold on to the borrowed PotentialCleanUp<'_> that comes from the
+/// iterator. This owned form keeps the user-facing message together with the
+/// clean-up token so callers can store it until the user responds.
+#[derive(Clone, PartialEq, Eq)]
+pub struct OwnedPotentialCleanUp {
+    message: String,
+    clean_up: CleanUp,
+}
+
+impl OwnedPotentialCleanUp {
+    /// Returns the localized message that describes the potential clean up.
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
+    /// Returns the underlying clean-up token.
+    pub fn clean_up(&self) -> &CleanUp {
+        &self.clean_up
+    }
+
+    /// Consumes the owned potential clean up and yields the underlying token.
+    pub fn into_clean_up(self) -> CleanUp {
+        self.clean_up
+    }
 }
 
 impl fmt::Display for PotentialCleanUp<'_> {
@@ -127,6 +158,19 @@ impl fmt::Display for PotentialCleanUp<'_> {
         }
 
         f.write_str(Text::SumOfBestCleanerShouldRemove.resolve(lang))
+    }
+}
+
+impl PotentialCleanUp<'_> {
+    /// Converts the borrowed potential clean up into an owned form.
+    pub fn into_owned(self) -> OwnedPotentialCleanUp {
+        // The UI may need to keep the prompt alive while the editor continues
+        // processing events, so we eagerly materialize both the localized
+        // message and the clean-up token here.
+        OwnedPotentialCleanUp {
+            message: self.to_string(),
+            clean_up: self.clean_up,
+        }
     }
 }
 

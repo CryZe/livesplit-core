@@ -4,7 +4,7 @@
 //! editor as state objects that can be visualized by any kind of User
 //! Interface.
 
-use super::{Component, Layout, LayoutState};
+use super::{Component, Layout, LayoutSettings, LayoutState};
 use crate::{
     layout::ComponentState,
     localization::Lang,
@@ -231,6 +231,11 @@ impl Editor {
         self.layout
     }
 
+    /// Accesses the settings of the layout currently being edited.
+    pub fn settings(&self) -> LayoutSettings {
+        self.layout.settings()
+    }
+
     /// Calculates the layout's state based on the timer provided. You can use
     /// this to visualize all of the components of a layout, while it is still
     /// being edited by the Layout Editor. The [`ImageCache`] is updated with
@@ -273,6 +278,18 @@ impl Editor {
             &state.components,
             &self.selected_entry().path,
         ));
+    }
+
+    /// Scrolls the layout up. This is useful when previewing the layout while
+    /// it is being edited.
+    pub fn scroll_up(&mut self) {
+        self.layout.scroll_up();
+    }
+
+    /// Scrolls the layout down. This is useful when previewing the layout
+    /// while it is being edited.
+    pub fn scroll_down(&mut self) {
+        self.layout.scroll_down();
     }
 
     /// Forces all carousel states along `path` to show the child that contains

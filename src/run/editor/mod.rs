@@ -24,7 +24,7 @@ mod state;
 mod tests;
 
 pub use self::{
-    cleaning::SumOfBestCleaner,
+    cleaning::{CleanUp, OwnedPotentialCleanUp, SumOfBestCleaner},
     fuzzy_list::FuzzyList,
     segment_row::SegmentRow,
     state::{Buttons as ButtonsState, Segment as SegmentState, SelectionState, State},
@@ -969,6 +969,38 @@ impl Editor {
     /// allows you to delete them individually if any of them seem wrong.
     pub fn clean_sum_of_best(&mut self, lang: Lang) -> SumOfBestCleaner<'_> {
         SumOfBestCleaner::new(&mut self.run, lang)
+    }
+
+    /// Returns the next potential Sum of Best clean up that is not part of the
+    /// skipped list. The desktop UI recreates the cleaner after every dialog
+    /// interaction instead of keeping a self-borrowing cleaner alive across OS
+    /// window callbacks, so it needs an owned step that can be rediscovered on
+    /// demand.
+    pub fn next_sum_of_best_clean_up(
+        &mut self,
+        lang: Lang,
+        skipped: &[CleanUp],
+    ) -> Option<OwnedPotentialCleanUp> {
+        let mut cleaner = self.clean_sum_of_best(lang);
+
+        while let Some(potential) = cleaner.next_potential_clean_up() {
+            let owned = potential.into_owned();
+            if skipped.iter().any(|candidate| candidate == owned.clean_up()) {
+                continue;
+            }
+            return Some(owned);
+        }
+
+        None
+    }
+
+    /// Applies a previously chosen Sum of Best clean up.
+    pub fn apply_sum_of_best_clean_up(&mut self, clean_up: CleanUp) {
+        // Applying a clean up does not depend on localization. We still route
+        // through the existing cleaner implementation so the actual mutation
+        // stays centralized in one place.
+        let mut cleaner = self.clean_sum_of_best(Lang::English);
+        cleaner.apply(clean_up);
     }
 }
 

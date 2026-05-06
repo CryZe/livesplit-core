@@ -419,6 +419,50 @@ impl<P: SharedOwnership, I: SharedOwnership, F, L: SharedOwnership> SceneManager
     }
 }
 
+/// Calculates the resolution that best matches switching from one layout state
+/// to another while keeping the same scaling characteristics that the scene
+/// manager uses internally.
+pub fn recommended_layout_resolution(
+    previous: &LayoutState,
+    [width, height]: [f32; 2],
+    next: &LayoutState,
+) -> Option<[f32; 2]> {
+    match next.direction {
+        LayoutDirection::Vertical => {
+            let total_height = component::layout_height(next);
+            match previous.direction {
+                LayoutDirection::Vertical => {
+                    let previous_total_height = component::layout_height(previous);
+                    (previous_total_height.to_bits() != total_height.to_bits())
+                        .then_some([width, height / previous_total_height * total_height])
+                }
+                LayoutDirection::Horizontal => {
+                    let to_pixels = height / TWO_ROW_HEIGHT;
+                    let new_height = total_height * to_pixels;
+                    let new_width = DEFAULT_VERTICAL_WIDTH * to_pixels;
+                    Some([new_width, new_height])
+                }
+            }
+        }
+        LayoutDirection::Horizontal => {
+            let total_width = component::layout_width(next);
+            match previous.direction {
+                LayoutDirection::Vertical => {
+                    let previous_total_height = component::layout_height(previous);
+                    let new_height = height * TWO_ROW_HEIGHT / previous_total_height;
+                    let new_width = total_width * new_height / TWO_ROW_HEIGHT;
+                    Some([new_width, new_height])
+                }
+                LayoutDirection::Horizontal => {
+                    let previous_total_width = component::layout_width(previous);
+                    (previous_total_width.to_bits() != total_width.to_bits())
+                        .then_some([width / previous_total_width * total_width, height])
+                }
+            }
+        }
+    }
+}
+
 struct RenderContext<'b, A: ResourceAllocator> {
     transform: Transform,
     handles: Handles<A>,
