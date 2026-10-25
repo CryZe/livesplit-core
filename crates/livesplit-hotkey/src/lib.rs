@@ -17,6 +17,11 @@
 //! [`display`] presents localized key and modifier names using native keyboard
 //! conventions. Callers provide translations through [`display::Localize`], so
 //! display names never affect the stable identifiers used for saved hotkeys.
+//!
+//! On macOS, constructing a [`Hook`] never requests privacy access. Missing
+//! grants return [`Error::PermissionRequired`]. Applications should explain the
+//! required permission and call [`Hook::request_permission`] only after a user
+//! action, then explicitly retry creation once access has been granted.
 
 extern crate alloc;
 
@@ -51,9 +56,10 @@ pub mod display;
 mod hotkey;
 mod key_code;
 mod modifiers;
+mod permission;
 use core::fmt;
 
-pub use self::{hotkey::*, key_code::*, modifiers::*};
+pub use self::{hotkey::*, key_code::*, modifiers::*, permission::Permission};
 
 /// A hook allows you to listen to hotkeys.
 #[repr(transparent)]
@@ -78,16 +84,54 @@ pub enum ConsumePreference {
 }
 
 impl Hook {
+    /// Creates a hook without requesting privacy permissions.
+    ///
+    /// Missing privacy access returns [`Error::PermissionRequired`]; callers may
+    /// use [`Self::request_permission`] after an explicit user action.
+    ///
     /// Creates a new hook without any preference of whether the hotkeys should
     /// be consumed or not.
     pub fn new() -> Result<Self> {
-        Ok(Self(platform::Hook::new(ConsumePreference::NoPreference)?))
+        Self::with_consume_preference(ConsumePreference::NoPreference)
     }
 
+    /// Creates a hook without requesting privacy permissions.
+    ///
+    /// Missing privacy access returns [`Error::PermissionRequired`]; callers may
+    /// use [`Self::request_permission`] after an explicit user action.
+    ///
     /// Creates a new hook with a specific preference of whether the hotkeys
     /// should be consumed or not.
     pub fn with_consume_preference(consume: ConsumePreference) -> Result<Self> {
+        Self::check_permission(consume)?;
         Ok(Self(platform::Hook::new(consume)?))
+    }
+
+    /// Checks the native privacy grant for the selected hook without prompting.
+    ///
+    /// This does not create hooks or check registration/device access. On platforms
+    /// without a separate privacy-grant API it succeeds; hook creation may still fail.
+    pub fn check_permission(consume: ConsumePreference) -> Result<()> {
+        permission::check(consume)
+    }
+
+    /// Requests the selected hook's native privacy grant after a user action.
+    ///
+    /// Already granted access does not prompt. A native request may return before
+    /// approval takes effect; call this or retry construction explicitly later.
+    /// There is no polling or restart requirement imposed by this crate.
+    ///
+    /// ```no_run
+    /// # fn enable_from_user_action() -> livesplit_hotkey::Result<()> {
+    /// use livesplit_hotkey::{ConsumePreference, Hook};
+    /// let preference = ConsumePreference::PreferNoConsume;
+    /// Hook::request_permission(preference)?;
+    /// let hook = Hook::with_consume_preference(preference)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn request_permission(consume: ConsumePreference) -> Result<()> {
+        permission::request(consume)
     }
 
     /// Registers a hotkey to listen to.
@@ -124,6 +168,8 @@ pub enum Error {
     AlreadyRegistered,
     /// The hotkey to unregister was not registered.
     NotRegistered,
+    /// A native privacy grant is missing; explicitly request it after a user action.
+    PermissionRequired(Permission),
     /// A platform specific error occurred.
     Platform(platform::Error),
 }
@@ -140,6 +186,9 @@ impl fmt::Display for Error {
             }
             Self::AlreadyRegistered => "The hotkey was already registered.",
             Self::NotRegistered => "The hotkey to unregister was not registered.",
+            Self::PermissionRequired(permission) => {
+                return write!(f, "Global hotkeys require {permission} permission.");
+            }
             Self::Platform(e) => return fmt::Display::fmt(e, f),
         })
     }
@@ -158,6 +207,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "registers native hotkeys and waits for manual keyboard input"]
     fn test() {
         let hook = Hook::new().unwrap();
 
@@ -184,6 +234,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "creates a native hook and reads the host keyboard layout"]
     fn resolve() {
         let hook = Hook::new().unwrap();
 
